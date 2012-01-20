@@ -112,7 +112,10 @@ getMonitor(Display *x11, Window win)
     int midX = x + w / 2;
     int midY = y + h / 2;
 
-    // XXX: really need to sort by area of window on the monitor.
+    /*
+     * XXX: really need to sort by area of window on the monitor:
+     * centre may not be in any // monitor
+     */
     int num = 0;
     for (int i = 0; i < monitors.size(); ++i) {
         Geometry &mon = monitors[i];
