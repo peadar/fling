@@ -1,4 +1,5 @@
 #include <iostream>
+#include <X11/cursorfont.h>
 #include <limits>
 #include <vector>
 #include <string.h>
@@ -9,6 +10,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xmd.h>
 #include <X11/extensions/Xinerama.h>
+#include <X11/Xmu/WinUtil.h>
 
 struct Geometry {
     unsigned width;
@@ -48,6 +50,9 @@ struct Atoms {
     Atom NetClientList;
     Atom NetWmStrut;
     Atom NetWmStrutPartial;
+    Atom NetWmStateFullscreen;
+    Atom NetWmState;
+    Atom NetWmStateAdd;
     Atoms(Display *x11) 
     : NetActiveWindow(XInternAtom(x11, "_NET_ACTIVE_WINDOW", False))
     , Window(XInternAtom(x11, "WINDOW", False))
@@ -58,6 +63,9 @@ struct Atoms {
     , NetClientList(XInternAtom(x11, "_NET_CLIENT_LIST", False))
     , NetWmStrut(XInternAtom(x11, "_NET_WM_STRUT", False))
     , NetWmStrutPartial(XInternAtom(x11, "_NET_WM_STRUT_PARTIAL", False))
+    , NetWmStateFullscreen(XInternAtom(x11, "_NET_WM_STATE_FULLSCREEN", False))
+    , NetWmState(XInternAtom(x11, "_NET_WM_STATE", False))
+    , NetWmStateAdd(XInternAtom(x11, "_NET_WM_STATE_ADD", False))
     {}
 };
 
@@ -221,8 +229,8 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a)
     }
 }
 
-static
-void getWeight(char *str, long *mag, Gravity *grav, const char *names)
+static void
+getWeight(char *str, long *mag, Gravity *grav, const char *names)
 {
     char *p;
     *mag = strtol(str, &p, 10);
@@ -236,19 +244,75 @@ void getWeight(char *str, long *mag, Gravity *grav, const char *names)
         usage();
 }
 
+static Window
+pick(Display *x11, Window root)
+{
+
+    Window w = root;
+    Cursor c = XCreateFontCursor(x11, XC_question_arrow);
+
+    if (XGrabPointer(x11, root, False, ButtonPressMask|ButtonReleaseMask,
+            GrabModeSync, GrabModeAsync, None, c, CurrentTime) != GrabSuccess) {
+        std::clog << "can't grab pointer" << std::endl;
+        throw 999;
+    }
+
+    for (bool done = false; !done;) {
+        XEvent event;
+        XAllowEvents(x11, SyncPointer, CurrentTime);
+        XWindowEvent(x11, root, ButtonPressMask|ButtonReleaseMask, &event);
+        switch (event.type) {
+            case ButtonPress:
+                if (event.xbutton.button == 1 && event.xbutton.subwindow != None) 
+                    w = event.xbutton.subwindow;
+                break;
+            case ButtonRelease:
+                done = true;
+                break;
+        }
+    }
+    XUngrabPointer(x11, CurrentTime);
+    XFreeCursor(x11, c);
+    return XmuClientWindow(x11, w);
+}
+
+static Window
+active(Display *x11, Window root, const Atoms &a)
+{
+    // Find active window from WM.
+    Atom actualType;
+    int actualFormat;
+    unsigned long itemCount;
+    unsigned long afterBytes;
+    unsigned char *prop;
+    int rc = XGetWindowProperty(x11, root, a.NetActiveWindow,
+            0, std::numeric_limits<long>::max(), False, a.Window, 
+            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+    if (actualFormat == None || itemCount != 1) {
+        std::cerr << "can't find active window";
+        exit(1);
+    }
+    return *(Window *)prop;
+}
+
 int
 main(int argc, char *argv[])
 {
     int screen = -1, c;
     const char *gridName = "2x2";
+    bool fullscreen = false;
+    bool doPick = false;
 
-    while ((c = getopt(argc, argv, "vg:ns:")) != -1) {
+    while ((c = getopt(argc, argv, "vg:ns:fp")) != -1) {
         switch (c) {
             case 'v':
                 verbose++;
                 break;
             case 'g':
                 gridName = optarg;
+                break;
+            case 'p':
+                doPick = true;
                 break;
 
             case 's':
@@ -257,7 +321,9 @@ main(int argc, char *argv[])
             case 'n':
                 nodo = true;
                 break;
-
+            case 'f':
+                fullscreen = true;
+                break;
         }
     }
 
@@ -276,32 +342,47 @@ main(int argc, char *argv[])
     // Get the geometry of the monitors.
     detectMonitors(x11, a);
 
-    // Find active window from WM.
-    Atom actualType;
-    int actualFormat;
-    unsigned long itemCount;
-    unsigned long afterBytes;
-    unsigned char *prop;
-    int rc = XGetWindowProperty(x11, root, a.NetActiveWindow,
-            0, std::numeric_limits<long>::max(), False, a.Window, 
-            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-    if (actualFormat == None || itemCount != 1) {
-        std::cerr << "can't find active window";
-        exit(1);
+    Window win = doPick ? pick(x11, root) : active(x11, root, a);
+
+    std::clog << "fling " << win << "\n";
+
+    if (fullscreen) {
+        XEvent e;
+        XClientMessageEvent &ec = e.xclient;
+        memset(&e, 0, sizeof e);
+
+        ec.type = ClientMessage;
+        ec.serial = 1;
+        ec.send_event = True;
+        ec.message_type = a.NetWmState;
+        ec.window = win;
+        ec.format = 32;
+        ec.data.l[0] = 2; //_NET_WM_STATE_TOGGLE;
+        ec.data.l[1] = a.NetWmStateFullscreen;
+        ec.data.l[2] = 0;
+        ec.data.l[3] = 1;
+        if (!XSendEvent(x11, root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e))
+            std::cerr << "can't go fullscreen" << std::endl;
+        XSync(x11, False);
+        return 0;
     }
-    Window win = *(Window *)prop;
 
     /*
      * get the extent of the frame around the window: we assume the new frame
      * will have the same extents when we resize it, and use that to adjust the
      * position of the client window so its frame abuts the edge of the screen.
      */
+    Atom actualType;
+    int actualFormat;
+    unsigned long itemCount;
+    unsigned long afterBytes;
     long *frame;
-    rc = XGetWindowProperty(x11, win, a.NetFrameExtents,
+    unsigned char *prop;
+    int rc = XGetWindowProperty(x11, win, a.NetFrameExtents,
             0, std::numeric_limits<long>::max(), False, a.Cardinal, 
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount != 4) {
-        std::cerr << "can't find frame sizes";
+        std::cerr << "can't find frame sizes" << std::endl;
     } else {
         frame =  (long *)prop;
     }
@@ -316,14 +397,21 @@ main(int argc, char *argv[])
     long horiz; // how much horizontal space.
     Gravity vertGravity;
     Gravity horizGravity;
+
+    struct Weight {
+        Gravity g;
+        float value;
+        bool mod;
+    };
+
     struct shortcut {
         const char *name;
         Gravity vg;
         long vp;
-
         Gravity hg;
         long hp;
     };
+
     shortcut shortcuts[] = {
         { "top", Low, 50, Center, 100 },
         { "bottom", High, 50, Center, 100 },
