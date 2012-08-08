@@ -288,7 +288,8 @@ active(Display *x11, Window root, const Atoms &a)
     int rc = XGetWindowProperty(x11, root, a.NetActiveWindow,
             0, std::numeric_limits<long>::max(), False, a.Window, 
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-    if (actualFormat == None || itemCount != 1) {
+    // XXX: xfce strangely has two items here, second appears to be zero.
+    if (actualFormat != 32 || itemCount < 1) {
         std::cerr << "can't find active window";
         exit(1);
     }
