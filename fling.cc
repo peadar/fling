@@ -18,7 +18,6 @@ struct Geometry {
     int x;
     int y;
 };
-enum Gravity { Low, Center, High };
 
 struct Range {
     long start;
@@ -229,21 +228,6 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a)
     }
 }
 
-static void
-getWeight(char *str, long *mag, Gravity *grav, const char *names)
-{
-    char *p;
-    *mag = strtol(str, &p, 10);
-    if (*p == names[0])
-        *grav = Low;
-    else if (*p == names[1])
-        *grav = Center;
-    else if (*p == names[2])
-        *grav = High;
-    else
-        usage();
-}
-
 static Window
 pick(Display *x11, Window root)
 {
@@ -293,6 +277,17 @@ active(Display *x11, Window root, const Atoms &a)
         exit(1);
     }
     return *(Window *)prop;
+}
+
+void
+getFrac(const char *val, int &numerator, unsigned &denominator)
+{
+    char *p;
+    numerator = strtol(val, &p, 0);
+    if (*p == '/')
+        denominator = strtol(p + 1, &p, 0);
+    else
+        numerator = denominator = 1;
 }
 
 int
@@ -395,50 +390,44 @@ main(int argc, char *argv[])
     // now work out where to put the window.
     long vert; // how much vertical space.
     long horiz; // how much horizontal space.
-    Gravity vertGravity;
-    Gravity horizGravity;
 
-    struct Weight {
-        Gravity g;
-        float value;
-        bool mod;
-    };
+    Geometry manual, *geom; 
 
     struct shortcut {
         const char *name;
-        Gravity vg;
-        long vp;
-        Gravity hg;
-        long hp;
+        Geometry geom;
     };
 
     shortcut shortcuts[] = {
-        { "top", Low, 50, Center, 100 },
-        { "bottom", High, 50, Center, 100 },
-        { "left", Center, 100, Low, 50 },
-        { "right", Center, 100, High, 50 },
-        { "topleft", Low, 50, Low, 50 },
-        { "topright", Low, 50, High, 50 },
-        { "bottomleft", High, 50, Low, 50 },
-        { "bottomright", High, 50, High, 50 },
-        { 0, Low, 100, High, 100 }
+        { "top", { 1, 2, 0, 0 } },
+        { "bottom", { 1, 2, 0, 1 } },
+
+        { "left", { 2, 1, 0, 0 } },
+        { "right", { 2, 1, 1, 0 } },
+
+        { "topleft", { 2, 2, 0, 0 } },
+        { "topright", { 2, 2, 1, 0 } },
+        { "bottomleft", { 2, 2, 0, 1 } },
+        { "bottomright", { 2, 2, 1, 1 } },
+        { "full", { 1, 1, 1, 1 } },
     };
 
+    geom = 0;
     if (argc - optind == 1) {
         for (shortcut *sc = shortcuts;; sc++)
             if (sc->name == 0 || strcmp(argv[optind], sc->name) == 0) {
-                vertGravity = sc->vg;
-                horizGravity = sc->hg;
-                vert = sc->vp;
-                horiz = sc->hp;
+                geom = &sc->geom;
                 break;
             }
     } else if (argc - optind == 2) {
-        getWeight(argv[optind], &vert, &vertGravity, "ncs");
-        getWeight(argv[optind + 1], &horiz, &horizGravity, "wce");
-    } else {
-        usage();
+        getFrac(argv[optind], manual.x, manual.width);
+        manual.x--;
+        getFrac(argv[optind + 1], manual.y, manual.height);
+        manual.y--;
+        geom = &manual;
     }
+    if (geom == 0)
+        usage();
 
     if (screen == -1)
         screen = getMonitor(x11, win);
@@ -446,20 +435,11 @@ main(int argc, char *argv[])
     Geometry &m = monitors[screen];
     Geometry w;
 
-    w.width = m.width * horiz / 100;
-    w.height = m.height * vert / 100;
+    w.width = m.width / geom->width;
+    w.height = m.height / geom->height;
 
-    switch (horizGravity) {
-        case Low: w.x = 0; break;
-        case High: w.x = m.width - w.width; break;
-        case Center: w.x = (m.width - w.width) / 2; break;
-    }
-
-    switch (vertGravity) {
-        case Low: w.y = 0; break;
-        case High: w.y = m.height - w.height; break;
-        case Center: w.y = (m.height - w.height) / 2; break;
-    }
+    w.x = w.width * geom->x;
+    w.y = w.height * geom->y;
 
     // monitor-relative -> root relative
     w.x += m.x;
