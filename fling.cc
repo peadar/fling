@@ -88,9 +88,11 @@ static void
 usage()
 {
     std::clog
-<< "usage: fling [ -v ] [ -s screen ] ( left | right | top | bottom | topleft | bottomleft | topright | bottomright" << std::endl
-<< "     : fling [ -v ] [ -s screen ] <percentage>(n|s|c) <percentage>(e|w|c)" << std::endl
+<< "usage: fling [ -vpf ] [ -s screen ] ( left | right | top | bottom | topleft | bottomleft | topright | bottomright )" << std::endl
+<< "     : fling [ -vpf ] [ -s screen ] <percentage>(n|s|c) <percentage>(e|w|c)" << std::endl
 << " -v adds verbose output" << std::endl
+<< " -f set the current window to fullscreen, subsequent call will untoggle" << std::endl
+<< " -p choose the target window with the mouse pointer" << std::endl
 << " The percentile version indicates what percentage of the display to take up" << std::endl
 << " on the vertical and horizontal axes. The n, s, e, w, and c suffixes to the" << std::endl
 << " percentages indicate the gravity, i.e., the screen edge you wish to attach" << std::endl
@@ -272,7 +274,8 @@ active(Display *x11, Window root, const Atoms &a)
     int rc = XGetWindowProperty(x11, root, a.NetActiveWindow,
             0, std::numeric_limits<long>::max(), False, a.Window, 
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-    if (actualFormat == None || itemCount != 1) {
+    // XXX: xfce strangely has two items here, second appears to be zero.
+    if (actualFormat != 32 || itemCount < 1) {
         std::cerr << "can't find active window";
         exit(1);
     }
