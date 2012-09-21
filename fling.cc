@@ -12,9 +12,12 @@
 #include <X11/extensions/Xinerama.h>
 #include <X11/Xmu/WinUtil.h>
 
-struct Geometry {
+struct Size {
     unsigned width;
     unsigned height;
+};
+struct Geometry {
+    Size size;
     int x;
     int y;
 };
@@ -77,8 +80,8 @@ static bool nodo = false;
 std::ostream &
 operator<<(std::ostream &os, const Geometry &m)
 {
-    return os << "{ w:" << m.width
-                << ", h: " << m.height
+    return os << "{ w:" << m.size.width
+                << ", h: " << m.size.height
                 << ", x: " << m.x
                 << ", y: " << m.y
                 << " }";
@@ -128,8 +131,8 @@ getMonitor(Display *x11, Window win)
     int num = 0;
     for (int i = 0; i < monitors.size(); ++i) {
         Geometry &mon = monitors[i];
-        if (midX >= mon.x && midX < mon.x + mon.width
-                && midY >= monitors[i].y && midY < mon.y + mon.height) {
+        if (midX >= mon.x && midX < mon.x + mon.size.width
+                && midY >= monitors[i].y && midY < mon.y + mon.size.height) {
             std::clog << "window is on monitor " << i << "; " << mon << std::endl;
             return i;
         }
@@ -141,22 +144,22 @@ void
 PartialStrut::box(Geometry &g)
 {
     long winend, strutend;
-    if (rtop.aligned(g.x, g.width) && top > g.y) {
-        g.height += top - g.y;
+    if (rtop.aligned(g.x, g.size.width) && top > g.y) {
+        g.size.height += top - g.y;
         g.y = top;
     }
-    if (rleft.aligned(g.y, g.height) && left > g.x) {
-        g.width += left - g.x;
+    if (rleft.aligned(g.y, g.size.height) && left > g.x) {
+        g.size.width += left - g.x;
         g.x = left;
     }
-    winend = g.y + g.height;
-    strutend = rootGeom.height - bottom;
-    if (rbottom.aligned(g.x, g.width) && strutend < winend)
-        g.height += strutend - winend; 
-    winend = g.x + g.width;
-    strutend = rootGeom.width - right;
-    if (rright.aligned(g.y, g.height) && strutend < winend)
-        g.width += strutend - winend; 
+    winend = g.y + g.size.height;
+    strutend = rootGeom.size.height - bottom;
+    if (rbottom.aligned(g.x, g.size.width) && strutend < winend)
+        g.size.height += strutend - winend; 
+    winend = g.x + g.size.width;
+    strutend = rootGeom.size.width - right;
+    if (rright.aligned(g.y, g.size.height) && strutend < winend)
+        g.size.width += strutend - winend; 
 }
 
 static void
@@ -183,8 +186,8 @@ detectMonitors(Display *x11, const Atoms &a)
         }
         monitors.resize(monitorCount);
         for (size_t i = 0; i < monitorCount; ++i) {
-            monitors[i].width = xineramaMonitors[i].width;
-            monitors[i].height = xineramaMonitors[i].height;
+            monitors[i].size.width = xineramaMonitors[i].width;
+            monitors[i].size.height = xineramaMonitors[i].height;
             monitors[i].x = xineramaMonitors[i].x_org;
             monitors[i].y = xineramaMonitors[i].y_org;
         }
@@ -283,14 +286,19 @@ active(Display *x11, Window root, const Atoms &a)
 }
 
 void
-getFrac(const char *val, int &numerator, unsigned &denominator)
+getGeom(const char *val, int &numerator, unsigned &denominator, unsigned &extent)
 {
     char *p;
     numerator = strtol(val, &p, 0);
-    if (*p == '/')
+    if (*p == '/') {
         denominator = strtol(p + 1, &p, 0);
-    else
-        numerator = denominator = 1;
+        if (*p == ':')
+            extent = strtol(p + 1, &p, 0);
+        else
+            extent = 1;
+    } else {
+        extent = numerator = denominator = 1;
+    }
 }
 
 int
@@ -333,7 +341,7 @@ main(int argc, char *argv[])
     // Get geometry of root window.
     Window tmp;
     unsigned bw, bd;
-    XGetGeometry(x11, root, &tmp,  &rootGeom.x, &rootGeom.y, &rootGeom.width, &rootGeom.height, &bw, &bd);
+    XGetGeometry(x11, root, &tmp,  &rootGeom.x, &rootGeom.y, &rootGeom.size.width, &rootGeom.size.height, &bw, &bd);
     if (verbose)
         std::cout << "root geometry: " << rootGeom;
 
@@ -394,69 +402,72 @@ main(int argc, char *argv[])
     long vert; // how much vertical space.
     long horiz; // how much horizontal space.
 
-    Geometry manual, *geom; 
+
+    struct Grid {
+        Size screen;
+        Geometry window;
+    };
 
     struct shortcut {
         const char *name;
-        Geometry geom;
+        Grid data;
     };
 
     shortcut shortcuts[] = {
-        { "top", { 1, 2, 0, 0 } },
-        { "bottom", { 1, 2, 0, 1 } },
-
-        { "left", { 2, 1, 0, 0 } },
-        { "right", { 2, 1, 1, 0 } },
-
-        { "topleft", { 2, 2, 0, 0 } },
-        { "topright", { 2, 2, 1, 0 } },
-        { "bottomleft", { 2, 2, 0, 1 } },
-        { "bottomright", { 2, 2, 1, 1 } },
-        { "full", { 1, 1, 1, 1 } },
+        { "top",        { { 1, 2 }, { { 1, 1 }, 0, 0 }} } , 
+        { "bottom",     { { 1, 2 }, { { 1, 1 }, 0, 1 }} } , 
+        { "left",       { { 2, 1 }, { { 1, 1 }, 0, 0 }} } , 
+        { "right",      { { 2, 1 }, { { 1, 1 }, 1, 0 }} } , 
+        { "topleft",    { { 2, 2 }, { { 1, 1 }, 0, 0 }} } , 
+        { "topright",   { { 2, 2 }, { { 1, 1 }, 1, 0 }} } , 
+        { "bottomleft", { { 2, 2 }, { { 1, 1 }, 0, 1 }} } , 
+        { "bottomright",{ { 2, 2 }, { { 1, 1 }, 1, 1 }} } , 
+        { 0 }
     };
 
-    geom = 0;
+    Grid *data = 0;
+    Grid manual;
     if (argc - optind == 1) {
         for (shortcut *sc = shortcuts;; sc++)
             if (sc->name == 0 || strcmp(argv[optind], sc->name) == 0) {
-                geom = &sc->geom;
+                data = &sc->data;
                 break;
             }
     } else if (argc - optind == 2) {
-        getFrac(argv[optind], manual.x, manual.width);
-        manual.x--;
-        getFrac(argv[optind + 1], manual.y, manual.height);
-        manual.y--;
-        geom = &manual;
+        data = &manual;
+        getGeom(argv[optind++], data->window.x, data->screen.width, data->window.size.width);
+        getGeom(argv[optind++], data->window.y, data->screen.height, data->window.size.height);
+        manual.window.x--;
+        manual.window.y--;
     }
-    if (geom == 0)
+    if (data == 0)
         usage();
 
     if (screen == -1)
         screen = getMonitor(x11, win);
 
-    Geometry &m = monitors[screen];
-    Geometry w;
+    Geometry &monitor = monitors[screen];
+    Geometry window;
 
-    w.width = m.width / geom->width;
-    w.height = m.height / geom->height;
+    window.size.width = monitor.size.width * data->window.size.width / data->screen.width;
+    window.size.height = monitor.size.height * data->window.size.height / data->screen.height;
 
-    w.x = w.width * geom->x;
-    w.y = w.height * geom->y;
+    window.x = monitor.size.width * data->window.x / data->screen.width;
+    window.y = monitor.size.height * data->window.y / data->screen.height;
 
     // monitor-relative -> root relative
-    w.x += m.x;
-    w.y += m.y;
+    window.x += monitor.x;
+    window.y += monitor.y;
 
     // make sure the window doesn't cover any struts.
-    adjustForStruts(x11, &w, a);
+    adjustForStruts(x11, &window, a);
 
     // Now have the geometry for the frame. Adjust to client window size,
     // assuming frame will remain the same.
-    w.width -= frame[0] + frame[1];
-    w.height -= frame[2] + frame[3];
-    w.x += frame[0];
-    w.y += frame[2];
+    window.size.width -= frame[0] + frame[1];
+    window.size.height -= frame[2] + frame[3];
+    window.x += frame[0];
+    window.y += frame[2];
 
     // Tell the WM where to put it.
     XEvent e;
@@ -468,10 +479,10 @@ main(int argc, char *argv[])
     ec.window = win;
     ec.format = 32;
     ec.data.l[0] = 0xf0a;
-    ec.data.l[1] = w.x;
-    ec.data.l[2] = w.y;
-    ec.data.l[3] = w.width;
-    ec.data.l[4] = w.height;
+    ec.data.l[1] = window.x;
+    ec.data.l[2] = window.y;
+    ec.data.l[3] = window.size.width;
+    ec.data.l[4] = window.size.height;
 
     if (verbose) 
         std::cout << "new geometry: (" << ec.data.l[1] << ","
