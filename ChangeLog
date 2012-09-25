@@ -1,5 +1,16 @@
 fling a window around
 
+Version 2:
+
+Does fractional flings:
+$ fling 1/3 2/3
+
+means fling to the first third (left) and second third (vertically
+centred). You can augment the fractions with a span:
+
+$ fling 1 1/3:2
+means full width, and occupying the top 2/3rds of the screen.
+
 Version 1:
 
 Use "fling topleft" and "fling bottom", and similar combinations  to
