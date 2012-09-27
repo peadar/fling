@@ -73,7 +73,6 @@ struct Atoms {
 
 static std::vector<Geometry> monitors;
 static Geometry rootGeom;
-static int verbose;
 static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage()
 static bool nodo = false;
 
@@ -93,7 +92,6 @@ usage()
     std::clog
 << "usage: fling [ -vpf ] [ -s screen ] ( left | right | top | bottom | topleft | bottomleft | topright | bottomright )" << std::endl
 << "     : fling [ -vpf ] [ -s screen ] <percentage>(n|s|c) <percentage>(e|w|c)" << std::endl
-<< " -v adds verbose output" << std::endl
 << " -f set the current window to fullscreen, subsequent call will untoggle" << std::endl
 << " -p choose the target window with the mouse pointer" << std::endl
 << " The percentile version indicates what percentage of the display to take up" << std::endl
@@ -113,12 +111,12 @@ getMonitor(Display *x11, Window win)
     unsigned int w = 0, h = 0, bw, bd;
     s = XGetGeometry(x11, win, &winroot,  &x, &y, &w, &h, &bw, &bd);
     if (!s) {
-        std::cout << "Can't get geometry: " << s << std::endl;
+        std::cerr << "Can't get root window geometry" << std::endl;
         return 0;
     }
     s = XTranslateCoordinates(x11, win, winroot,  x, y, &x, &y, &winroot);
     if (!s) {
-        std::cout << "Can't translate window coordinates" << s << std::endl;
+        std::cerr << "Can't translate root window coordinates" << std::endl;
         return 0;
     }
     int midX = x + w / 2;
@@ -133,7 +131,6 @@ getMonitor(Display *x11, Window win)
         Geometry &mon = monitors[i];
         if (midX >= mon.x && midX < mon.x + mon.size.width
                 && midY >= monitors[i].y && midY < mon.y + mon.size.height) {
-            std::clog << "window is on monitor " << i << "; " << mon << std::endl;
             return i;
         }
     }
@@ -175,8 +172,6 @@ detectMonitors(Display *x11, const Atoms &a)
     if (XineramaQueryExtension(x11, &eventBase, &eventError) == 0) {
         monitors.resize(1);
         monitors[0] = rootGeom;
-        if (verbose)
-            std::cout << "no xinerama" << std::endl;
     } else {
         int monitorCount;
         XineramaScreenInfo *xineramaMonitors = XineramaQueryScreens(x11, &monitorCount);
@@ -192,12 +187,7 @@ detectMonitors(Display *x11, const Atoms &a)
             monitors[i].y = xineramaMonitors[i].y_org;
         }
         XFree(xineramaMonitors);
-        if (verbose)
-            std::cout << "found xinerama" << std::endl;
     }
-    if (verbose) 
-        for (std::vector<Geometry>::const_iterator i = monitors.begin(); i != monitors.end(); ++i)
-            std::cout << "monitor: " << *i << "\n";
 }
 
 void
@@ -213,22 +203,22 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a)
             0, std::numeric_limits<long>::max(), False, a.Window, 
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount <= 0 ) {
-        if (verbose)
-            std::cout << "can't find clients to do strut processing";
-    } else {
-        Window *w = (Window *)prop;
-        for (size_t i = itemCount; i-- > 0;) {
-            rc = XGetWindowProperty(x11, w[i], a.NetWmStrutPartial,
-                0, std::numeric_limits<long>::max(), False, a.Cardinal, 
-                &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-            if (rc == 0) {
-                if (itemCount == 12 && actualFormat == 32) {
-                    PartialStrut *strut = (PartialStrut *)prop;
-                    std::cout << "window " << w[i] << " has partial struts" << std::endl;
-                    strut->box(*g);
-                }
-                XFree(prop);
+        std::cerr << "can't list clients to do strut processing" << std::endl;
+        return;
+    }
+
+    Window *w = (Window *)prop;
+    for (size_t i = itemCount; i-- > 0;) {
+        rc = XGetWindowProperty(x11, w[i], a.NetWmStrutPartial,
+            0, std::numeric_limits<long>::max(), False, a.Cardinal, 
+            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+        if (rc == 0) {
+            if (itemCount == 12 && actualFormat == 32) {
+                PartialStrut *strut = (PartialStrut *)prop;
+                std::cout << "window " << w[i] << " has partial struts" << std::endl;
+                strut->box(*g);
             }
+            XFree(prop);
         }
     }
 }
@@ -242,8 +232,7 @@ pick(Display *x11, Window root)
 
     if (XGrabPointer(x11, root, False, ButtonPressMask|ButtonReleaseMask,
             GrabModeSync, GrabModeAsync, None, c, CurrentTime) != GrabSuccess) {
-        std::clog << "can't grab pointer" << std::endl;
-        throw 999;
+        throw "can't grab pointer";
     }
 
     for (bool done = false; !done;) {
@@ -309,11 +298,8 @@ main(int argc, char *argv[])
     bool fullscreen = false;
     bool doPick = false;
 
-    while ((c = getopt(argc, argv, "vg:ns:fp")) != -1) {
+    while ((c = getopt(argc, argv, "g:ns:fp")) != -1) {
         switch (c) {
-            case 'v':
-                verbose++;
-                break;
             case 'g':
                 gridName = optarg;
                 break;
@@ -342,15 +328,10 @@ main(int argc, char *argv[])
     Window tmp;
     unsigned bw, bd;
     XGetGeometry(x11, root, &tmp,  &rootGeom.x, &rootGeom.y, &rootGeom.size.width, &rootGeom.size.height, &bw, &bd);
-    if (verbose)
-        std::cout << "root geometry: " << rootGeom;
-
     // Get the geometry of the monitors.
     detectMonitors(x11, a);
 
     Window win = doPick ? pick(x11, root) : active(x11, root, a);
-
-    std::clog << "fling " << win << "\n";
 
     if (fullscreen) {
         XEvent e;
@@ -391,11 +372,6 @@ main(int argc, char *argv[])
         std::cerr << "can't find frame sizes" << std::endl;
     } else {
         frame =  (long *)prop;
-    }
-    if (verbose) {
-        std::cout << "frame extents: " << "\t";
-        for (size_t i = 0; i < itemCount; ++i)
-            std::cout << frame[i] << (i + 1 == itemCount ? "\n" : ",");
     }
 
     // now work out where to put the window.
@@ -483,10 +459,6 @@ main(int argc, char *argv[])
     ec.data.l[2] = window.y;
     ec.data.l[3] = window.size.width;
     ec.data.l[4] = window.size.height;
-
-    if (verbose) 
-        std::cout << "new geometry: (" << ec.data.l[1] << ","
-            << ec.data.l[2] << "), " << ec.data.l[3] << "x" << ec.data.l[4] << std::endl;
 
     if (!nodo) {
         XSendEvent(x11, root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e);
