@@ -1,4 +1,4 @@
-CXXFLAGS = -g
+CXXFLAGS = -g -std=c++0x
 
 all:fling
 
