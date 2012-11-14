@@ -4,6 +4,7 @@ Use "fling topleft" and "fling bottom", and similar combinations  to
 get the active window shifted to one of 8 segments of the screen
 
 More control is available using fraction-like notation:
+
     $ fling 1/3 2/2
 
 makes the window occupy the first third of the X axis, and the 2nd half
@@ -19,10 +20,11 @@ and leftmost two-thirds of the screen.
 xinerama is supported: use "-s<num>" to shift from the current xinerama
 monitor.
 
-Any _NET_WM_STRUT_PARTIAL hints on windows will be obeyed as much as
+Any \_NET\_WM\_STRUT\_PARTIAL hints on windows will be obeyed as much as
 possible.
 
 You can use the following flags:
+
 *   "-p"        : use the mouse to pick the window to fling once invoked.
 *   "-f"        : go "fullscreen"
 *   "-b <num>"  : specify border width
