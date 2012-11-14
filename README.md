@@ -17,7 +17,7 @@ You can add a ":" after the fractional bit to indicate a span, eg:
 Makes the window shift to the bottom left, occupying the bottom half,
 and leftmost two-thirds of the screen.
 
-xinerama is supported: use "-s<num>" to shift from the current xinerama
+xinerama is supported: use "-s \<num\>" to shift from the current xinerama
 monitor.
 
 Any \_NET\_WM\_STRUT\_PARTIAL hints on windows will be obeyed as much as
@@ -27,4 +27,4 @@ You can use the following flags:
 
 *   "-p"        : use the mouse to pick the window to fling once invoked.
 *   "-f"        : go "fullscreen"
-*   "-b <num>"  : specify border width
+*   "-b \<num\>"  : specify border width
