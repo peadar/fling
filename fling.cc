@@ -75,6 +75,7 @@ static std::vector<Geometry> monitors;
 static Geometry rootGeom;
 static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage()
 static bool nodo = false;
+static int border = 2;
 
 std::ostream &
 operator<<(std::ostream &os, const Geometry &m)
@@ -298,13 +299,16 @@ main(int argc, char *argv[])
     bool fullscreen = false;
     bool doPick = false;
 
-    while ((c = getopt(argc, argv, "g:ns:fp")) != -1) {
+    while ((c = getopt(argc, argv, "b:g:ns:fp")) != -1) {
         switch (c) {
             case 'g':
                 gridName = optarg;
                 break;
             case 'p':
                 doPick = true;
+                break;
+            case 'b':
+                border = intarg();
                 break;
 
             case 's':
@@ -440,10 +444,10 @@ main(int argc, char *argv[])
 
     // Now have the geometry for the frame. Adjust to client window size,
     // assuming frame will remain the same.
-    window.size.width -= frame[0] + frame[1];
-    window.size.height -= frame[2] + frame[3];
-    window.x += frame[0];
-    window.y += frame[2];
+    window.size.width -= frame[0] + frame[1] + border * 2;
+    window.size.height -= frame[2] + frame[3] + border * 2;
+    window.x += frame[0] + border;
+    window.y += frame[2] + border;
 
     // Tell the WM where to put it.
     XEvent e;
