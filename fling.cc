@@ -91,14 +91,22 @@ static void
 usage()
 {
     std::clog
-<< "usage: fling [ -vpf ] [ -s screen ] ( left | right | top | bottom | topleft | bottomleft | topright | bottomright )" << std::endl
-<< "     : fling [ -vpf ] [ -s screen ] <percentage>(n|s|c) <percentage>(e|w|c)" << std::endl
-<< " -f set the current window to fullscreen, subsequent call will untoggle" << std::endl
-<< " -p choose the target window with the mouse pointer" << std::endl
-<< " The percentile version indicates what percentage of the display to take up" << std::endl
-<< " on the vertical and horizontal axes. The n, s, e, w, and c suffixes to the" << std::endl
-<< " percentages indicate the gravity, i.e., the screen edge you wish to attach" << std::endl
-<< " to the window." << std::endl
+<< "usage:" << std::endl
+<< "fling [ -p ] [ -s <screen> ] [-b <border>] \\" << std::endl
+<< "        <left|right|top|bottom|topleft|bottomleft|topright|bottomright>" << std::endl
+<< "    move to specified area of screen." << std::endl
+<< std::endl
+<< "fling [ -p ] [ -s screen ] \\" << std::endl
+<< "       <numx>[/denomx[:spanx]] <numy>[/denomy[:spany]]" << std::endl
+<< "    move left edge of window to (numx,numy) in a grid size " << std::endl
+<< "    (denomx,denomy), spanning a rectangle of size spanx, spany gridpoints." << std::endl
+<< std::endl
+<< "fling -f [ -p ] [ -s screen ]" << std::endl
+<< "    toggle fullscreen status of window " << std::endl
+<< std::endl
+<< " -p allows you to choose the target window for all invocations, otherwise," << std::endl
+<< " the window is moved. For use in a terminal emulator, this means fling will" << std::endl
+<< " fling your terminal around" << std::endl
 ;
     exit(1);
 }
