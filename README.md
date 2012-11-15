@@ -5,6 +5,7 @@ Use
     $ fling topleft
 
 and
+
     $ fling bottom
 
 and other obvious combinations of top bottom, left, and right to get
