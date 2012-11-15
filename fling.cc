@@ -12,13 +12,15 @@
 #include <X11/extensions/Xinerama.h>
 #include <X11/Xmu/WinUtil.h>
 
-struct Geometry {
+struct Size {
     unsigned width;
     unsigned height;
+};
+struct Geometry {
+    Size size;
     int x;
     int y;
 };
-enum Gravity { Low, Center, High };
 
 struct Range {
     long start;
@@ -71,15 +73,15 @@ struct Atoms {
 
 static std::vector<Geometry> monitors;
 static Geometry rootGeom;
-static int verbose;
 static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage()
 static bool nodo = false;
+static int border = 2;
 
 std::ostream &
 operator<<(std::ostream &os, const Geometry &m)
 {
-    return os << "{ w:" << m.width
-                << ", h: " << m.height
+    return os << "{ w:" << m.size.width
+                << ", h: " << m.size.height
                 << ", x: " << m.x
                 << ", y: " << m.y
                 << " }";
@@ -89,13 +91,22 @@ static void
 usage()
 {
     std::clog
-<< "usage: fling [ -v ] [ -s screen ] ( left | right | top | bottom | topleft | bottomleft | topright | bottomright" << std::endl
-<< "     : fling [ -v ] [ -s screen ] <percentage>(n|s|c) <percentage>(e|w|c)" << std::endl
-<< " -v adds verbose output" << std::endl
-<< " The percentile version indicates what percentage of the display to take up" << std::endl
-<< " on the vertical and horizontal axes. The n, s, e, w, and c suffixes to the" << std::endl
-<< " percentages indicate the gravity, i.e., the screen edge you wish to attach" << std::endl
-<< " to the window." << std::endl
+<< "usage:" << std::endl
+<< "fling [ -p ] [ -s <screen> ] [-b <border>] \\" << std::endl
+<< "        <left|right|top|bottom|topleft|bottomleft|topright|bottomright>" << std::endl
+<< "    move to specified area of screen." << std::endl
+<< std::endl
+<< "fling [ -p ] [ -s screen ] \\" << std::endl
+<< "       <numx>[/denomx[:spanx]] <numy>[/denomy[:spany]]" << std::endl
+<< "    move left edge of window to (numx,numy) in a grid size " << std::endl
+<< "    (denomx,denomy), spanning a rectangle of size spanx, spany gridpoints." << std::endl
+<< std::endl
+<< "fling -f [ -p ] [ -s screen ]" << std::endl
+<< "    toggle fullscreen status of window " << std::endl
+<< std::endl
+<< " -p allows you to choose the target window for all invocations, otherwise," << std::endl
+<< " the window is moved. For use in a terminal emulator, this means fling will" << std::endl
+<< " fling your terminal around" << std::endl
 ;
     exit(1);
 }
@@ -109,12 +120,12 @@ getMonitor(Display *x11, Window win)
     unsigned int w = 0, h = 0, bw, bd;
     s = XGetGeometry(x11, win, &winroot,  &x, &y, &w, &h, &bw, &bd);
     if (!s) {
-        std::cout << "Can't get geometry: " << s << std::endl;
+        std::cerr << "Can't get root window geometry" << std::endl;
         return 0;
     }
     s = XTranslateCoordinates(x11, win, winroot,  x, y, &x, &y, &winroot);
     if (!s) {
-        std::cout << "Can't translate window coordinates" << s << std::endl;
+        std::cerr << "Can't translate root window coordinates" << std::endl;
         return 0;
     }
     int midX = x + w / 2;
@@ -127,9 +138,8 @@ getMonitor(Display *x11, Window win)
     int num = 0;
     for (int i = 0; i < monitors.size(); ++i) {
         Geometry &mon = monitors[i];
-        if (midX >= mon.x && midX < mon.x + mon.width
-                && midY >= monitors[i].y && midY < mon.y + mon.height) {
-            std::clog << "window is on monitor " << i << "; " << mon << std::endl;
+        if (midX >= mon.x && midX < mon.x + mon.size.width
+                && midY >= monitors[i].y && midY < mon.y + mon.size.height) {
             return i;
         }
     }
@@ -140,22 +150,22 @@ void
 PartialStrut::box(Geometry &g)
 {
     long winend, strutend;
-    if (rtop.aligned(g.x, g.width) && top > g.y) {
-        g.height += top - g.y;
+    if (rtop.aligned(g.x, g.size.width) && top > g.y) {
+        g.size.height += top - g.y;
         g.y = top;
     }
-    if (rleft.aligned(g.y, g.height) && left > g.x) {
-        g.width += left - g.x;
+    if (rleft.aligned(g.y, g.size.height) && left > g.x) {
+        g.size.width += left - g.x;
         g.x = left;
     }
-    winend = g.y + g.height;
-    strutend = rootGeom.height - bottom;
-    if (rbottom.aligned(g.x, g.width) && strutend < winend)
-        g.height += strutend - winend; 
-    winend = g.x + g.width;
-    strutend = rootGeom.width - right;
-    if (rright.aligned(g.y, g.height) && strutend < winend)
-        g.width += strutend - winend; 
+    winend = g.y + g.size.height;
+    strutend = rootGeom.size.height - bottom;
+    if (rbottom.aligned(g.x, g.size.width) && strutend < winend)
+        g.size.height += strutend - winend; 
+    winend = g.x + g.size.width;
+    strutend = rootGeom.size.width - right;
+    if (rright.aligned(g.y, g.size.height) && strutend < winend)
+        g.size.width += strutend - winend; 
 }
 
 static void
@@ -171,8 +181,6 @@ detectMonitors(Display *x11, const Atoms &a)
     if (XineramaQueryExtension(x11, &eventBase, &eventError) == 0) {
         monitors.resize(1);
         monitors[0] = rootGeom;
-        if (verbose)
-            std::cout << "no xinerama" << std::endl;
     } else {
         int monitorCount;
         XineramaScreenInfo *xineramaMonitors = XineramaQueryScreens(x11, &monitorCount);
@@ -182,18 +190,13 @@ detectMonitors(Display *x11, const Atoms &a)
         }
         monitors.resize(monitorCount);
         for (size_t i = 0; i < monitorCount; ++i) {
-            monitors[i].width = xineramaMonitors[i].width;
-            monitors[i].height = xineramaMonitors[i].height;
+            monitors[i].size.width = xineramaMonitors[i].width;
+            monitors[i].size.height = xineramaMonitors[i].height;
             monitors[i].x = xineramaMonitors[i].x_org;
             monitors[i].y = xineramaMonitors[i].y_org;
         }
         XFree(xineramaMonitors);
-        if (verbose)
-            std::cout << "found xinerama" << std::endl;
     }
-    if (verbose) 
-        for (auto i : monitors)
-            std::cout << "monitor: " << i << "\n";
 }
 
 void
@@ -209,39 +212,24 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a)
             0, std::numeric_limits<long>::max(), False, a.Window, 
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount <= 0 ) {
-        if (verbose)
-            std::cout << "can't find clients to do strut processing";
-    } else {
-        Window *w = (Window *)prop;
-        for (size_t i = itemCount; i-- > 0;) {
-            rc = XGetWindowProperty(x11, w[i], a.NetWmStrutPartial,
-                0, std::numeric_limits<long>::max(), False, a.Cardinal, 
-                &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-            if (rc == 0) {
-                if (itemCount == 12 && actualFormat == 32) {
-                    PartialStrut *strut = (PartialStrut *)prop;
-                    std::cout << "window " << w[i] << " has partial struts" << std::endl;
-                    strut->box(*g);
-                }
-                XFree(prop);
+        std::cerr << "can't list clients to do strut processing" << std::endl;
+        return;
+    }
+
+    Window *w = (Window *)prop;
+    for (size_t i = itemCount; i-- > 0;) {
+        rc = XGetWindowProperty(x11, w[i], a.NetWmStrutPartial,
+            0, std::numeric_limits<long>::max(), False, a.Cardinal, 
+            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+        if (rc == 0) {
+            if (itemCount == 12 && actualFormat == 32) {
+                PartialStrut *strut = (PartialStrut *)prop;
+                std::cout << "window " << w[i] << " has partial struts" << std::endl;
+                strut->box(*g);
             }
+            XFree(prop);
         }
     }
-}
-
-static void
-getWeight(char *str, long *mag, Gravity *grav, const char *names)
-{
-    char *p;
-    *mag = strtol(str, &p, 10);
-    if (*p == names[0])
-        *grav = Low;
-    else if (*p == names[1])
-        *grav = Center;
-    else if (*p == names[2])
-        *grav = High;
-    else
-        usage();
 }
 
 static Window
@@ -252,8 +240,7 @@ pick(Display *x11, Window root)
 
     if (XGrabPointer(x11, root, False, ButtonPressMask|ButtonReleaseMask,
             GrabModeSync, GrabModeAsync, None, c, CurrentTime) != GrabSuccess) {
-        std::clog << "can't grab pointer" << std::endl;
-        throw 999;
+        throw "can't grab pointer";
     }
 
     for (bool done = false; !done;) {
@@ -287,11 +274,28 @@ active(Display *x11, Window root, const Atoms &a)
     int rc = XGetWindowProperty(x11, root, a.NetActiveWindow,
             0, std::numeric_limits<long>::max(), False, a.Window, 
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-    if (actualFormat == None || itemCount != 1) {
+    // XXX: xfce strangely has two items here, second appears to be zero.
+    if (actualFormat != 32 || itemCount < 1) {
         std::cerr << "can't find active window";
         exit(1);
     }
     return *(Window *)prop;
+}
+
+void
+getGeom(const char *val, int &numerator, unsigned &denominator, unsigned &extent)
+{
+    char *p;
+    numerator = strtol(val, &p, 0);
+    if (*p == '/') {
+        denominator = strtol(p + 1, &p, 0);
+        if (*p == ':')
+            extent = strtol(p + 1, &p, 0);
+        else
+            extent = 1;
+    } else {
+        extent = numerator = denominator = 1;
+    }
 }
 
 int
@@ -302,16 +306,16 @@ main(int argc, char *argv[])
     bool fullscreen = false;
     bool doPick = false;
 
-    while ((c = getopt(argc, argv, "vg:ns:fp")) != -1) {
+    while ((c = getopt(argc, argv, "b:g:ns:fp")) != -1) {
         switch (c) {
-            case 'v':
-                verbose++;
-                break;
             case 'g':
                 gridName = optarg;
                 break;
             case 'p':
                 doPick = true;
+                break;
+            case 'b':
+                border = intarg();
                 break;
             case 's':
                 screen = intarg();
@@ -333,16 +337,11 @@ main(int argc, char *argv[])
     // Get geometry of root window.
     Window tmp;
     unsigned bw, bd;
-    XGetGeometry(x11, root, &tmp,  &rootGeom.x, &rootGeom.y, &rootGeom.width, &rootGeom.height, &bw, &bd);
-    if (verbose)
-        std::cout << "root geometry: " << rootGeom;
-
+    XGetGeometry(x11, root, &tmp,  &rootGeom.x, &rootGeom.y, &rootGeom.size.width, &rootGeom.size.height, &bw, &bd);
     // Get the geometry of the monitors.
     detectMonitors(x11, a);
 
     Window win = doPick ? pick(x11, root) : active(x11, root, a);
-
-    std::clog << "fling " << win << "\n";
 
     if (fullscreen) {
         XEvent e;
@@ -384,94 +383,77 @@ main(int argc, char *argv[])
     } else {
         frame =  (long *)prop;
     }
-    if (verbose) {
-        std::cout << "frame extents: " << "\t";
-        for (size_t i = 0; i < itemCount; ++i)
-            std::cout << frame[i] << (i + 1 == itemCount ? "\n" : ",");
-    }
 
     // now work out where to put the window.
     long vert; // how much vertical space.
     long horiz; // how much horizontal space.
-    Gravity vertGravity;
-    Gravity horizGravity;
 
-    struct Weight {
-        Gravity g;
-        float value;
-        bool mod;
+
+    struct Grid {
+        Size screen;
+        Geometry window;
     };
 
     struct shortcut {
         const char *name;
-        Gravity vg;
-        long vp;
-        Gravity hg;
-        long hp;
+        Grid data;
     };
 
     shortcut shortcuts[] = {
-        { "top", Low, 50, Center, 100 },
-        { "bottom", High, 50, Center, 100 },
-        { "left", Center, 100, Low, 50 },
-        { "right", Center, 100, High, 50 },
-        { "topleft", Low, 50, Low, 50 },
-        { "topright", Low, 50, High, 50 },
-        { "bottomleft", High, 50, Low, 50 },
-        { "bottomright", High, 50, High, 50 },
-        { 0, Low, 100, High, 100 }
+        { "top",        { { 1, 2 }, { { 1, 1 }, 0, 0 }} } , 
+        { "bottom",     { { 1, 2 }, { { 1, 1 }, 0, 1 }} } , 
+        { "left",       { { 2, 1 }, { { 1, 1 }, 0, 0 }} } , 
+        { "right",      { { 2, 1 }, { { 1, 1 }, 1, 0 }} } , 
+        { "topleft",    { { 2, 2 }, { { 1, 1 }, 0, 0 }} } , 
+        { "topright",   { { 2, 2 }, { { 1, 1 }, 1, 0 }} } , 
+        { "bottomleft", { { 2, 2 }, { { 1, 1 }, 0, 1 }} } , 
+        { "bottomright",{ { 2, 2 }, { { 1, 1 }, 1, 1 }} } , 
+        { 0 }
     };
 
+    Grid *data = 0;
+    Grid manual;
     if (argc - optind == 1) {
         for (shortcut *sc = shortcuts;; sc++)
             if (sc->name == 0 || strcmp(argv[optind], sc->name) == 0) {
-                vertGravity = sc->vg;
-                horizGravity = sc->hg;
-                vert = sc->vp;
-                horiz = sc->hp;
+                data = &sc->data;
                 break;
             }
     } else if (argc - optind == 2) {
-        getWeight(argv[optind], &vert, &vertGravity, "ncs");
-        getWeight(argv[optind + 1], &horiz, &horizGravity, "wce");
-    } else {
-        usage();
+        data = &manual;
+        getGeom(argv[optind++], data->window.x, data->screen.width, data->window.size.width);
+        getGeom(argv[optind++], data->window.y, data->screen.height, data->window.size.height);
+        manual.window.x--;
+        manual.window.y--;
     }
+    if (data == 0)
+        usage();
 
     if (screen == -1)
         screen = getMonitor(x11, win);
 
-    Geometry &m = monitors[screen];
-    Geometry w;
+    Geometry &monitor = monitors[screen];
+    Geometry window;
 
-    w.width = m.width * horiz / 100;
-    w.height = m.height * vert / 100;
+    window.size.width = monitor.size.width * data->window.size.width / data->screen.width;
+    window.size.height = monitor.size.height * data->window.size.height / data->screen.height;
 
-    switch (horizGravity) {
-        case Low: w.x = 0; break;
-        case High: w.x = m.width - w.width; break;
-        case Center: w.x = (m.width - w.width) / 2; break;
-    }
-
-    switch (vertGravity) {
-        case Low: w.y = 0; break;
-        case High: w.y = m.height - w.height; break;
-        case Center: w.y = (m.height - w.height) / 2; break;
-    }
+    window.x = monitor.size.width * data->window.x / data->screen.width;
+    window.y = monitor.size.height * data->window.y / data->screen.height;
 
     // monitor-relative -> root relative
-    w.x += m.x;
-    w.y += m.y;
+    window.x += monitor.x;
+    window.y += monitor.y;
 
     // make sure the window doesn't cover any struts.
-    adjustForStruts(x11, &w, a);
+    adjustForStruts(x11, &window, a);
 
     // Now have the geometry for the frame. Adjust to client window size,
     // assuming frame will remain the same.
-    w.width -= frame[0] + frame[1];
-    w.height -= frame[2] + frame[3];
-    w.x += frame[0];
-    w.y += frame[2];
+    window.size.width -= frame[0] + frame[1] + border * 2;
+    window.size.height -= frame[2] + frame[3] + border * 2;
+    window.x += frame[0] + border;
+    window.y += frame[2] + border;
 
     // Tell the WM where to put it.
     XEvent e;
@@ -483,14 +465,10 @@ main(int argc, char *argv[])
     ec.window = win;
     ec.format = 32;
     ec.data.l[0] = 0xf0a;
-    ec.data.l[1] = w.x;
-    ec.data.l[2] = w.y;
-    ec.data.l[3] = w.width;
-    ec.data.l[4] = w.height;
-
-    if (verbose) 
-        std::cout << "new geometry: (" << ec.data.l[1] << ","
-            << ec.data.l[2] << "), " << ec.data.l[3] << "x" << ec.data.l[4] << std::endl;
+    ec.data.l[1] = window.x;
+    ec.data.l[2] = window.y;
+    ec.data.l[3] = window.size.width;
+    ec.data.l[4] = window.size.height;
 
     if (!nodo) {
         XSendEvent(x11, root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e);
