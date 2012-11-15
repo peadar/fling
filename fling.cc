@@ -42,7 +42,7 @@ struct PartialStrut {
 
 struct Atoms {
     Atom NetActiveWindow;
-    Atom Window; 
+    Atom Window;
     Atom Cardinal;
     Atom VisualId;
     Atom NetMoveResizeWindow;
@@ -192,8 +192,8 @@ detectMonitors(Display *x11, const Atoms &a)
             std::cout << "found xinerama" << std::endl;
     }
     if (verbose) 
-        for (std::vector<Geometry>::const_iterator i = monitors.begin(); i != monitors.end(); ++i)
-            std::cout << "monitor: " << *i << "\n";
+        for (auto i : monitors)
+            std::cout << "monitor: " << i << "\n";
 }
 
 void
@@ -247,7 +247,6 @@ getWeight(char *str, long *mag, Gravity *grav, const char *names)
 static Window
 pick(Display *x11, Window root)
 {
-
     Window w = root;
     Cursor c = XCreateFontCursor(x11, XC_question_arrow);
 
@@ -314,7 +313,6 @@ main(int argc, char *argv[])
             case 'p':
                 doPick = true;
                 break;
-
             case 's':
                 screen = intarg();
                 break;
