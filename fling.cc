@@ -55,7 +55,7 @@ struct Atoms {
     Atom NetWmStateFullscreen;
     Atom NetWmState;
     Atom NetWmStateAdd;
-    Atoms(Display *x11) 
+    Atoms(Display *x11)
     : NetActiveWindow(XInternAtom(x11, "_NET_ACTIVE_WINDOW", False))
     , Window(XInternAtom(x11, "WINDOW", False))
     , Cardinal(XInternAtom(x11, "CARDINAL", False))
@@ -135,11 +135,10 @@ getMonitor(Display *x11, Window win)
      * XXX: really need to sort by area of window on the monitor:
      * centre may not be in any // monitor
      */
-    int num = 0;
-    for (int i = 0; i < monitors.size(); ++i) {
+    for (size_t i = 0; i < monitors.size(); ++i) {
         Geometry &mon = monitors[i];
-        if (midX >= mon.x && midX < mon.x + mon.size.width
-                && midY >= monitors[i].y && midY < mon.y + mon.size.height) {
+        if (midX >= mon.x && midX < mon.x + int(mon.size.width)
+                && midY >= monitors[i].y && midY < mon.y + int(mon.size.height)) {
             return i;
         }
     }
@@ -149,7 +148,6 @@ getMonitor(Display *x11, Window win)
 void
 PartialStrut::box(Geometry &g)
 {
-    long winend, strutend;
     if (rtop.aligned(g.x, g.size.width) && top > g.y) {
         g.size.height += top - g.y;
         g.y = top;
@@ -158,24 +156,19 @@ PartialStrut::box(Geometry &g)
         g.size.width += left - g.x;
         g.x = left;
     }
-    winend = g.y + g.size.height;
-    strutend = rootGeom.size.height - bottom;
+    long winend = g.y + g.size.height;
+    long strutend = rootGeom.size.height - bottom;
     if (rbottom.aligned(g.x, g.size.width) && strutend < winend)
-        g.size.height += strutend - winend; 
+        g.size.height += strutend - winend;
     winend = g.x + g.size.width;
     strutend = rootGeom.size.width - right;
     if (rright.aligned(g.y, g.size.height) && strutend < winend)
-        g.size.width += strutend - winend; 
+        g.size.width += strutend - winend;
 }
 
 static void
 detectMonitors(Display *x11, const Atoms &a)
 {
-    Atom actualType;
-    int actualFormat;
-    unsigned long itemCount;
-    unsigned long afterBytes;
-    unsigned char *prop;
     // If xinerama is present, use it.
     int eventBase, eventError;
     if (XineramaQueryExtension(x11, &eventBase, &eventError) == 0) {
@@ -189,7 +182,7 @@ detectMonitors(Display *x11, const Atoms &a)
             exit(1);
         }
         monitors.resize(monitorCount);
-        for (size_t i = 0; i < monitorCount; ++i) {
+        for (int i = 0; i < monitorCount; ++i) {
             monitors[i].size.width = xineramaMonitors[i].width;
             monitors[i].size.height = xineramaMonitors[i].height;
             monitors[i].x = xineramaMonitors[i].x_org;
@@ -209,7 +202,7 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a)
     unsigned char *prop;
     // get a list of all clients, so we can adjust monitor sizes for extents.
     int rc = XGetWindowProperty(x11, XDefaultRootWindow(x11), a.NetClientList,
-            0, std::numeric_limits<long>::max(), False, a.Window, 
+            0, std::numeric_limits<long>::max(), False, a.Window,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount <= 0 ) {
         std::cerr << "can't list clients to do strut processing" << std::endl;
@@ -219,7 +212,7 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a)
     Window *w = (Window *)prop;
     for (size_t i = itemCount; i-- > 0;) {
         rc = XGetWindowProperty(x11, w[i], a.NetWmStrutPartial,
-            0, std::numeric_limits<long>::max(), False, a.Cardinal, 
+            0, std::numeric_limits<long>::max(), False, a.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
         if (rc == 0) {
             if (itemCount == 12 && actualFormat == 32) {
@@ -249,7 +242,7 @@ pick(Display *x11, Window root)
         XWindowEvent(x11, root, ButtonPressMask|ButtonReleaseMask, &event);
         switch (event.type) {
             case ButtonPress:
-                if (event.xbutton.button == 1 && event.xbutton.subwindow != None) 
+                if (event.xbutton.button == 1 && event.xbutton.subwindow != None)
                     w = event.xbutton.subwindow;
                 break;
             case ButtonRelease:
@@ -272,10 +265,10 @@ active(Display *x11, Window root, const Atoms &a)
     unsigned long afterBytes;
     unsigned char *prop;
     int rc = XGetWindowProperty(x11, root, a.NetActiveWindow,
-            0, std::numeric_limits<long>::max(), False, a.Window, 
+            0, std::numeric_limits<long>::max(), False, a.Window,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     // XXX: xfce strangely has two items here, second appears to be zero.
-    if (actualFormat != 32 || itemCount < 1) {
+    if (rc != 0 || actualFormat != 32 || itemCount < 1) {
         std::cerr << "can't find active window";
         exit(1);
     }
@@ -302,15 +295,11 @@ int
 main(int argc, char *argv[])
 {
     int screen = -1, c;
-    const char *gridName = "2x2";
     bool fullscreen = false;
     bool doPick = false;
 
     while ((c = getopt(argc, argv, "b:g:ns:fp")) != -1) {
         switch (c) {
-            case 'g':
-                gridName = optarg;
-                break;
             case 'p':
                 doPick = true;
                 break;
@@ -373,22 +362,20 @@ main(int argc, char *argv[])
     int actualFormat;
     unsigned long itemCount;
     unsigned long afterBytes;
-    long *frame;
+    const long *frame;
     unsigned char *prop;
     int rc = XGetWindowProperty(x11, win, a.NetFrameExtents,
-            0, std::numeric_limits<long>::max(), False, a.Cardinal, 
+            0, std::numeric_limits<long>::max(), False, a.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount != 4) {
         std::cerr << "can't find frame sizes" << std::endl;
+        static long defaultFrame[] = { 0, 0, 0, 0 };
+        frame = defaultFrame;
     } else {
         frame =  (long *)prop;
     }
 
     // now work out where to put the window.
-    long vert; // how much vertical space.
-    long horiz; // how much horizontal space.
-
-
     struct Grid {
         Size screen;
         Geometry window;
@@ -400,14 +387,14 @@ main(int argc, char *argv[])
     };
 
     shortcut shortcuts[] = {
-        { "top",        { { 1, 2 }, { { 1, 1 }, 0, 0 }} } , 
-        { "bottom",     { { 1, 2 }, { { 1, 1 }, 0, 1 }} } , 
-        { "left",       { { 2, 1 }, { { 1, 1 }, 0, 0 }} } , 
-        { "right",      { { 2, 1 }, { { 1, 1 }, 1, 0 }} } , 
-        { "topleft",    { { 2, 2 }, { { 1, 1 }, 0, 0 }} } , 
-        { "topright",   { { 2, 2 }, { { 1, 1 }, 1, 0 }} } , 
-        { "bottomleft", { { 2, 2 }, { { 1, 1 }, 0, 1 }} } , 
-        { "bottomright",{ { 2, 2 }, { { 1, 1 }, 1, 1 }} } , 
+        { "top",        { { 1, 2 }, { { 1, 1 }, 0, 0 }} } ,
+        { "bottom",     { { 1, 2 }, { { 1, 1 }, 0, 1 }} } ,
+        { "left",       { { 2, 1 }, { { 1, 1 }, 0, 0 }} } ,
+        { "right",      { { 2, 1 }, { { 1, 1 }, 1, 0 }} } ,
+        { "topleft",    { { 2, 2 }, { { 1, 1 }, 0, 0 }} } ,
+        { "topright",   { { 2, 2 }, { { 1, 1 }, 1, 0 }} } ,
+        { "bottomleft", { { 2, 2 }, { { 1, 1 }, 0, 1 }} } ,
+        { "bottomright",{ { 2, 2 }, { { 1, 1 }, 1, 1 }} } ,
         { 0 }
     };
 
