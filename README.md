@@ -1,7 +1,14 @@
 # Fling an X11 window around
 
-Use "fling topleft" and "fling bottom", and similar combinations  to
-get the active window shifted to one of 8 segments of the screen
+Use
+
+    $ fling topleft
+
+and
+    $ fling bottom
+
+and other obvious combinations of top bottom, left, and right to get
+the active window shifted to one of 8 segments of the screen
 
 More control is available using fraction-like notation:
 
@@ -27,4 +34,4 @@ You can use the following flags:
 
 *   "-p"        : use the mouse to pick the window to fling once invoked.
 *   "-f"        : go "fullscreen"
-*   "-b \<num\>"  : specify border width
+*   "-b \<num\>"  : specify border width (pixels)
