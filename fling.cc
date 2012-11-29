@@ -217,7 +217,6 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a)
         if (rc == 0) {
             if (itemCount == 12 && actualFormat == 32) {
                 PartialStrut *strut = (PartialStrut *)prop;
-                std::cout << "window " << w[i] << " has partial struts" << std::endl;
                 strut->box(*g);
             }
             XFree(prop);
