@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unistd.h>
 #include <X11/cursorfont.h>
 #include <limits>
 #include <vector>
@@ -53,6 +54,7 @@ struct Atoms {
     Atom NetWmStrut;
     Atom NetWmStrutPartial;
     Atom NetWmStateFullscreen;
+    Atom NetWmStateBelow;
     Atom NetWmState;
     Atom NetWmStateAdd;
     Atoms(Display *x11)
@@ -66,6 +68,7 @@ struct Atoms {
     , NetWmStrut(XInternAtom(x11, "_NET_WM_STRUT", False))
     , NetWmStrutPartial(XInternAtom(x11, "_NET_WM_STRUT_PARTIAL", False))
     , NetWmStateFullscreen(XInternAtom(x11, "_NET_WM_STATE_FULLSCREEN", False))
+    , NetWmStateBelow(XInternAtom(x11, "_NET_WM_STATE_BELOW", False))
     , NetWmState(XInternAtom(x11, "_NET_WM_STATE", False))
     , NetWmStateAdd(XInternAtom(x11, "_NET_WM_STATE_ADD", False))
     {}
@@ -103,6 +106,8 @@ usage()
 << std::endl
 << "fling -f [ -p ] [ -s screen ]" << std::endl
 << "    toggle fullscreen status of window " << std::endl
+<< "fling -u [ -p ] [ -s screen ]" << std::endl
+<< "    toggle window to be below all others (can combine with -f)" << std::endl
 << std::endl
 << " -p allows you to choose the target window for all invocations, otherwise," << std::endl
 << " the window is moved. For use in a terminal emulator, this means fling will" << std::endl
@@ -290,14 +295,36 @@ getGeom(const char *val, int &numerator, unsigned &denominator, unsigned &extent
     }
 }
 
+static void
+toggleFlag(Display *x11, Window root, Window win, const Atoms a, const Atom &toggle)
+{
+    XEvent e;
+    XClientMessageEvent &ec = e.xclient;
+    memset(&e, 0, sizeof e);
+    ec.type = ClientMessage;
+    ec.serial = 1;
+    ec.send_event = True;
+    ec.message_type = a.NetWmState;
+    ec.window = win;
+    ec.format = 32;
+    ec.data.l[0] = 2; //_NET_WM_STATE_TOGGLE;
+    ec.data.l[1] = toggle;
+    ec.data.l[2] = 0;
+    ec.data.l[3] = 1;
+    if (!XSendEvent(x11, root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e))
+        std::cerr << "can't go fullscreen" << std::endl;
+    XSync(x11, False);
+}
+
 int
 main(int argc, char *argv[])
 {
     int screen = -1, c;
     bool fullscreen = false;
+    bool under = false;
     bool doPick = false;
 
-    while ((c = getopt(argc, argv, "b:g:ns:fp")) != -1) {
+    while ((c = getopt(argc, argv, "b:g:ns:fpu")) != -1) {
         switch (c) {
             case 'p':
                 doPick = true;
@@ -313,6 +340,9 @@ main(int argc, char *argv[])
                 break;
             case 'f':
                 fullscreen = true;
+                break;
+            case 'u':
+                under = true;
                 break;
         }
     }
@@ -331,24 +361,11 @@ main(int argc, char *argv[])
 
     Window win = doPick ? pick(x11, root) : active(x11, root, a);
 
-    if (fullscreen) {
-        XEvent e;
-        XClientMessageEvent &ec = e.xclient;
-        memset(&e, 0, sizeof e);
-
-        ec.type = ClientMessage;
-        ec.serial = 1;
-        ec.send_event = True;
-        ec.message_type = a.NetWmState;
-        ec.window = win;
-        ec.format = 32;
-        ec.data.l[0] = 2; //_NET_WM_STATE_TOGGLE;
-        ec.data.l[1] = a.NetWmStateFullscreen;
-        ec.data.l[2] = 0;
-        ec.data.l[3] = 1;
-        if (!XSendEvent(x11, root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e))
-            std::cerr << "can't go fullscreen" << std::endl;
-        XSync(x11, False);
+    if (fullscreen || under) {
+        if (fullscreen)
+            toggleFlag(x11, root, win, a, a.NetWmStateFullscreen);
+        if (under)
+            toggleFlag(x11, root, win, a, a.NetWmStateBelow);
         return 0;
     }
 
