@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <X11/cursorfont.h>
 #include <limits>
+#include <list>
 #include <vector>
 #include <string.h>
 #include <assert.h>
@@ -55,8 +56,12 @@ struct Atoms {
     Atom NetWmStrutPartial;
     Atom NetWmStateFullscreen;
     Atom NetWmStateBelow;
+    Atom NetWmStateAbove;
     Atom NetWmState;
     Atom NetWmStateAdd;
+    Atom NetWmStateMaximizedVert;
+    Atom NetWmStateMaximizedHoriz;
+    Atom NetWmStateShaded;
     Atoms(Display *x11)
     : NetActiveWindow(XInternAtom(x11, "_NET_ACTIVE_WINDOW", False))
     , Window(XInternAtom(x11, "WINDOW", False))
@@ -69,8 +74,12 @@ struct Atoms {
     , NetWmStrutPartial(XInternAtom(x11, "_NET_WM_STRUT_PARTIAL", False))
     , NetWmStateFullscreen(XInternAtom(x11, "_NET_WM_STATE_FULLSCREEN", False))
     , NetWmStateBelow(XInternAtom(x11, "_NET_WM_STATE_BELOW", False))
+    , NetWmStateAbove(XInternAtom(x11, "_NET_WM_STATE_ABOVE", False))
     , NetWmState(XInternAtom(x11, "_NET_WM_STATE", False))
     , NetWmStateAdd(XInternAtom(x11, "_NET_WM_STATE_ADD", False))
+    , NetWmStateMaximizedVert(XInternAtom(x11,  "_NET_WM_STATE_MAXIMIZED_VERT", False))
+    , NetWmStateMaximizedHoriz(XInternAtom(x11, "_NET_WM_STATE_MAXIMIZED_HORZ", False))
+    , NetWmStateShaded(XInternAtom(x11, "_NET_WM_STATE_SHADED", False))
     {}
 };
 
@@ -296,7 +305,7 @@ getGeom(const char *val, int &numerator, unsigned &denominator, unsigned &extent
 }
 
 static void
-toggleFlag(Display *x11, Window root, Window win, const Atoms a, const Atom &toggle)
+toggleFlag(Display *x11, Window root, Window win, const Atoms a, const Atom toggle)
 {
     XEvent e;
     XClientMessageEvent &ec = e.xclient;
@@ -309,7 +318,7 @@ toggleFlag(Display *x11, Window root, Window win, const Atoms a, const Atom &tog
     ec.format = 32;
     ec.data.l[0] = 2; //_NET_WM_STATE_TOGGLE;
     ec.data.l[1] = toggle;
-    ec.data.l[2] = 0;
+    ec.data.l[2] = toggle == a.NetWmStateMaximizedHoriz ?  a.NetWmStateMaximizedVert : 0 ;
     ec.data.l[3] = 1;
     if (!XSendEvent(x11, root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e))
         std::cerr << "can't go fullscreen" << std::endl;
@@ -320,11 +329,15 @@ int
 main(int argc, char *argv[])
 {
     int screen = -1, c;
-    bool fullscreen = false;
-    bool under = false;
     bool doPick = false;
 
-    while ((c = getopt(argc, argv, "b:g:ns:fpu")) != -1) {
+    std::list<Atom> toggles;
+
+    Display *x11 = XOpenDisplay(0);
+    Atoms a(x11);
+    Window root = XDefaultRootWindow(x11);
+
+    while ((c = getopt(argc, argv, "ab:g:ns:fmpuh")) != -1) {
         switch (c) {
             case 'p':
                 doPick = true;
@@ -339,35 +352,41 @@ main(int argc, char *argv[])
                 nodo = true;
                 break;
             case 'f':
-                fullscreen = true;
+                toggles.push_back(a.NetWmStateFullscreen);
+                break;
+            case 'm':
+                toggles.push_back(a.NetWmStateMaximizedHoriz);
+                break;
+            case 'h':
+                toggles.push_back(a.NetWmStateShaded);
+                break;
+            case 'a':
+                toggles.push_back(a.NetWmStateAbove);
                 break;
             case 'u':
-                under = true;
+                toggles.push_back(a.NetWmStateBelow);
                 break;
         }
     }
 
-    // Connect to display
-    Display *x11 = XOpenDisplay(0);
-    Atoms a(x11);
-    Window root = XDefaultRootWindow(x11);
+    // Which window are we modifying?
+    Window win = doPick ? pick(x11, root) : active(x11, root, a);
+
+    // If we're doing state toggles, do them now.
+    if (toggles.size() > 0) {
+        for (auto atom : toggles)
+            toggleFlag(x11, root, win, a, atom);
+    }
+    if (argc == optind)
+        return 0;
+
+    // Get the geometry of the monitors.
+    detectMonitors(x11, a);
 
     // Get geometry of root window.
     Window tmp;
     unsigned bw, bd;
     XGetGeometry(x11, root, &tmp,  &rootGeom.x, &rootGeom.y, &rootGeom.size.width, &rootGeom.size.height, &bw, &bd);
-    // Get the geometry of the monitors.
-    detectMonitors(x11, a);
-
-    Window win = doPick ? pick(x11, root) : active(x11, root, a);
-
-    if (fullscreen || under) {
-        if (fullscreen)
-            toggleFlag(x11, root, win, a, a.NetWmStateFullscreen);
-        if (under)
-            toggleFlag(x11, root, win, a, a.NetWmStateBelow);
-        return 0;
-    }
 
     /*
      * get the extent of the frame around the window: we assume the new frame
