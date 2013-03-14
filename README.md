@@ -34,5 +34,9 @@ possible.
 You can use the following flags:
 
 *   "-p"        : use the mouse to pick the window to fling once invoked.
-*   "-f"        : go "fullscreen"
+*   "-f"        : toggle "fullscreen"
+*   "-m"        : toggle "maximised"
+*   "-u"        : toggle "below other windows"
+*   "-a"        : toggle "above other windows"
+*   "-h"        : toggle "sHaded"
 *   "-b \<num\>"  : specify border width (pixels)
