@@ -334,6 +334,10 @@ main(int argc, char *argv[])
     std::list<Atom> toggles;
 
     Display *x11 = XOpenDisplay(0);
+    if (x11 == 0) {
+        std::clog << "failed to open display: set DISPLAY environment variable" << std::endl;
+        return 1;
+    }
     Atoms a(x11);
     Window root = XDefaultRootWindow(x11);
 
