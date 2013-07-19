@@ -440,11 +440,14 @@ main(int argc, char *argv[])
     Grid *data = 0;
     Grid manual;
     if (argc - optind == 1) {
-        for (shortcut *sc = shortcuts;; sc++)
-            if (sc->name == 0 || strcmp(argv[optind], sc->name) == 0) {
+        for (shortcut *sc = shortcuts;; sc++) {
+            if (sc->name == 0)
+                usage();
+            if (strcmp(argv[optind], sc->name) == 0) {
                 data = &sc->data;
                 break;
             }
+        }
     } else if (argc - optind == 2) {
         data = &manual;
         getGeom(argv[optind++], data->window.x, data->screen.width, data->window.size.width);
@@ -452,8 +455,6 @@ main(int argc, char *argv[])
         manual.window.x--;
         manual.window.y--;
     }
-    if (data == 0)
-        usage();
 
     if (screen == -1)
         screen = getMonitor(x11, win);
