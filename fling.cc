@@ -163,21 +163,21 @@ void
 PartialStrut::box(Geometry &g)
 {
     if (rtop.aligned(g.x, g.size.width) && top > g.y) {
-        g.size.height += top - g.y;
+        g.size.height -= top - g.y;
         g.y = top;
     }
     if (rleft.aligned(g.y, g.size.height) && left > g.x) {
-        g.size.width += left - g.x;
+        g.size.width -= left - g.x;
         g.x = left;
     }
     long winend = g.y + g.size.height;
     long strutend = rootGeom.size.height - bottom;
     if (rbottom.aligned(g.x, g.size.width) && strutend < winend)
-        g.size.height += strutend - winend;
+        g.size.height -= winend - strutend;
     winend = g.x + g.size.width;
     strutend = rootGeom.size.width - right;
     if (rright.aligned(g.y, g.size.height) && strutend < winend)
-        g.size.width += strutend - winend;
+        g.size.width -= winend - strutend;
 }
 
 static void
