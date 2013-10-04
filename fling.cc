@@ -58,6 +58,7 @@ struct Atoms {
     Atom NetWmStateBelow;
     Atom NetWmStateAbove;
     Atom NetWmState;
+    Atom NetWmDesktop;
     Atom NetWmStateAdd;
     Atom NetWmStateMaximizedVert;
     Atom NetWmStateMaximizedHoriz;
@@ -76,6 +77,7 @@ struct Atoms {
     , NetWmStateBelow(XInternAtom(x11, "_NET_WM_STATE_BELOW", False))
     , NetWmStateAbove(XInternAtom(x11, "_NET_WM_STATE_ABOVE", False))
     , NetWmState(XInternAtom(x11, "_NET_WM_STATE", False))
+    , NetWmDesktop(XInternAtom(x11, "_NET_WM_DESKTOP", False))
     , NetWmStateAdd(XInternAtom(x11, "_NET_WM_STATE_ADD", False))
     , NetWmStateMaximizedVert(XInternAtom(x11,  "_NET_WM_STATE_MAXIMIZED_VERT", False))
     , NetWmStateMaximizedHoriz(XInternAtom(x11, "_NET_WM_STATE_MAXIMIZED_HORZ", False))
@@ -207,7 +209,7 @@ detectMonitors(Display *x11, const Atoms &a)
 }
 
 void
-adjustForStruts(Display *x11, Geometry *g, const Atoms &a)
+adjustForStruts(Display *x11, Geometry *g, const Atoms &a, long targetDesktop)
 {
     Atom actualType;
     int actualFormat;
@@ -225,15 +227,25 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a)
 
     Window *w = (Window *)prop;
     for (size_t i = itemCount; i-- > 0;) {
-        rc = XGetWindowProperty(x11, w[i], a.NetWmStrutPartial,
-            0, std::numeric_limits<long>::max(), False, a.Cardinal,
-            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+        // if the window is on the same desktop...
+        rc = XGetWindowProperty(x11, w[i], a.NetWmDesktop, 0,
+                std::numeric_limits<long>::max(), False, a.Cardinal,
+                &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
         if (rc == 0) {
-            if (itemCount == 12 && actualFormat == 32) {
-                PartialStrut *strut = (PartialStrut *)prop;
-                strut->box(*g);
-            }
+            long clipDesktop = *(long *)prop;
             XFree(prop);
+            if (clipDesktop == targetDesktop || clipDesktop == -1 || targetDesktop == -1) {
+                rc = XGetWindowProperty(x11, w[i], a.NetWmStrutPartial,
+                    0, std::numeric_limits<long>::max(), False, a.Cardinal,
+                    &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+                if (rc == 0) {
+                    if (itemCount == 12 && actualFormat == 32) {
+                        PartialStrut *strut = (PartialStrut *)prop;
+                        strut->box(*g);
+                    }
+                    XFree(prop);
+                }
+            }
         }
     }
 }
@@ -392,6 +404,8 @@ main(int argc, char *argv[])
     unsigned bw, bd;
     XGetGeometry(x11, root, &tmp,  &rootGeom.x, &rootGeom.y, &rootGeom.size.width, &rootGeom.size.height, &bw, &bd);
 
+
+
     /*
      * get the extent of the frame around the window: we assume the new frame
      * will have the same extents when we resize it, and use that to adjust the
@@ -403,6 +417,7 @@ main(int argc, char *argv[])
     unsigned long afterBytes;
     const long *frame;
     unsigned char *prop;
+    long desktop;
     int rc = XGetWindowProperty(x11, win, a.NetFrameExtents,
             0, std::numeric_limits<long>::max(), False, a.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
@@ -411,8 +426,15 @@ main(int argc, char *argv[])
         static long defaultFrame[] = { 0, 0, 0, 0 };
         frame = defaultFrame;
     } else {
-        frame =  (long *)prop;
+        frame = (long *)prop;
     }
+
+    rc = XGetWindowProperty(x11, win, a.NetWmDesktop, 0,
+            std::numeric_limits<long>::max(), False, a.Cardinal,
+            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+
+    desktop = rc == 0 ? *(long *)prop : 0xffffffff;
+
 
     // now work out where to put the window.
     struct Grid {
@@ -473,7 +495,7 @@ main(int argc, char *argv[])
     window.y += monitor.y;
 
     // make sure the window doesn't cover any struts.
-    adjustForStruts(x11, &window, a);
+    adjustForStruts(x11, &window, a, desktop);
 
     // Now have the geometry for the frame. Adjust to client window size,
     // assuming frame will remain the same.
