@@ -13,12 +13,12 @@ the active window shifted to one of 8 segments of the screen
 
 If the argument does not match the above, then it is considered a control string. In this mode, the window is initially sized to the entire monitor, and each character reduces it in some way:
 
-l: retain only the left 50% of the space currently occupied
-r: retain only the right 50% of the space currently occupied
-u: retain only the top 50% space currently occupied
-d: retain only the bottom 50% space currently occupied
-h: retain 50% of the existing width, and centre in the existing horizontal space
-v: retain 50% of the existing height, and centre in the existing vertical space
+* l: retain only the left 50% of the space currently occupied
+* r: retain only the right 50% of the space currently occupied
+* u: retain only the top 50% space currently occupied
+* d: retain only the bottom 50% space currently occupied
+* h: retain 50% of the existing width, and centre in the existing horizontal space
+* v: retain 50% of the existing height, and centre in the existing vertical space
 
 More control is available using fraction-like notation:
 
