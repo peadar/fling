@@ -459,12 +459,18 @@ main(int argc, char *argv[])
         { 0 }
     };
 
+    if (screen == -1)
+        screen = getMonitor(x11, win);
+    Geometry &monitor = monitors[screen];
+
     Grid *data = 0;
     Grid manual;
+    Geometry window;
+
     if (argc - optind == 1) {
         for (shortcut *sc = shortcuts;; sc++) {
             if (sc->name == 0)
-                usage();
+                break;
             if (strcmp(argv[optind], sc->name) == 0) {
                 data = &sc->data;
                 break;
@@ -478,17 +484,49 @@ main(int argc, char *argv[])
         manual.window.y--;
     }
 
-    if (screen == -1)
-        screen = getMonitor(x11, win);
+    if (data) {
+        // original fractional spec.
+        window.size.width = monitor.size.width * data->window.size.width / data->screen.width;
+        window.size.height = monitor.size.height * data->window.size.height / data->screen.height;
+        window.x = monitor.size.width * data->window.x / data->screen.width;
+        window.y = monitor.size.height * data->window.y / data->screen.height;
+    } else {
+        // macro-style "up" "down" "left" "right"
+        window = monitor;
+        char c;
+        for (const char *path = argv[optind]; (c = *path) != 0; ++path) {
+            switch (c) {
+                case '.':
+                    break;
+                case 'r':
+                    // right move - move to right, and then...
+                    window.x += window.size.width / 2;
+                case 'l':
+                    // left move - cut out right hand side.
+                    window.size.width /= 2;
+                    break;
+                case 'd':
+                    window.y += window.size.height / 2;
+                case 'u':
+                    window.size.height /= 2;
+                    break;
+                case 'h':
+                    // reduce horizontal size and centre
+                    window.size.width /= 2;
+                    window.x += window.size.width / 2;
+                    break;
+                case 'v':
+                    // reduce vertical size and centre
+                    window.size.height /= 2;
+                    window.y += window.size.height / 2;
+                    break;
 
-    Geometry &monitor = monitors[screen];
-    Geometry window;
 
-    window.size.width = monitor.size.width * data->window.size.width / data->screen.width;
-    window.size.height = monitor.size.height * data->window.size.height / data->screen.height;
-
-    window.x = monitor.size.width * data->window.x / data->screen.width;
-    window.y = monitor.size.height * data->window.y / data->screen.height;
+                default:
+                    usage();
+            }
+        }
+    }
 
     // monitor-relative -> root relative
     window.x += monitor.x;
