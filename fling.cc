@@ -492,7 +492,11 @@ main(int argc, char *argv[])
         window.y = monitor.size.height * data->window.y / data->screen.height;
     } else {
         // macro-style "up" "down" "left" "right"
-        window = monitor;
+
+        // start with monitor-sized window at monitor's origin.
+        window.size = monitor.size;
+        window.x = 0;
+        window.y = 0;
         char c;
         for (const char *path = argv[optind]; (c = *path) != 0; ++path) {
             switch (c) {
@@ -520,7 +524,6 @@ main(int argc, char *argv[])
                     window.size.height /= 2;
                     window.y += window.size.height / 2;
                     break;
-
 
                 default:
                     usage();
