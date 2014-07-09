@@ -32,6 +32,8 @@ struct Range {
         { return !empty() && start <= origin + extent && end >= origin; }
 };
 
+struct X11Env;
+
 struct PartialStrut {
     long left;
     long right;
@@ -41,12 +43,16 @@ struct PartialStrut {
     Range rright;
     Range rtop;
     Range rbottom;
-    void box(Geometry &g);
+    void box(const X11Env &x11, Geometry &g);
 };
 
-struct Atoms {
+struct X11Env {
+    Display *display;
+    Window root;
+    Geometry rootGeom;
+
     Atom NetActiveWindow;
-    Atom Window;
+    Atom AWindow;
     Atom Cardinal;
     Atom VisualId;
     Atom NetMoveResizeWindow;
@@ -63,30 +69,50 @@ struct Atoms {
     Atom NetWmStateMaximizedVert;
     Atom NetWmStateMaximizedHoriz;
     Atom NetWmStateShaded;
-    Atoms(Display *x11)
-    : NetActiveWindow(XInternAtom(x11, "_NET_ACTIVE_WINDOW", False))
-    , Window(XInternAtom(x11, "WINDOW", False))
-    , Cardinal(XInternAtom(x11, "CARDINAL", False))
-    , VisualId(XInternAtom(x11, "VISUALID", False))
-    , NetMoveResizeWindow(XInternAtom(x11, "_NET_MOVERESIZE_WINDOW", False))
-    , NetFrameExtents(XInternAtom(x11, "_NET_FRAME_EXTENTS", False))
-    , NetClientList(XInternAtom(x11, "_NET_CLIENT_LIST", False))
-    , NetWmStrut(XInternAtom(x11, "_NET_WM_STRUT", False))
-    , NetWmStrutPartial(XInternAtom(x11, "_NET_WM_STRUT_PARTIAL", False))
-    , NetWmStateFullscreen(XInternAtom(x11, "_NET_WM_STATE_FULLSCREEN", False))
-    , NetWmStateBelow(XInternAtom(x11, "_NET_WM_STATE_BELOW", False))
-    , NetWmStateAbove(XInternAtom(x11, "_NET_WM_STATE_ABOVE", False))
-    , NetWmState(XInternAtom(x11, "_NET_WM_STATE", False))
-    , NetWmDesktop(XInternAtom(x11, "_NET_WM_DESKTOP", False))
-    , NetWmStateAdd(XInternAtom(x11, "_NET_WM_STATE_ADD", False))
-    , NetWmStateMaximizedVert(XInternAtom(x11,  "_NET_WM_STATE_MAXIMIZED_VERT", False))
-    , NetWmStateMaximizedHoriz(XInternAtom(x11, "_NET_WM_STATE_MAXIMIZED_HORZ", False))
-    , NetWmStateShaded(XInternAtom(x11, "_NET_WM_STATE_SHADED", False))
-    {}
+    X11Env(Display *display_)
+    : display(display_)
+    , root(XDefaultRootWindow(display))
+    , rootGeom(getGeometry(root))
+    , NetActiveWindow(XInternAtom(display, "_NET_ACTIVE_WINDOW", False))
+    , AWindow(XInternAtom(display, "WINDOW", False))
+    , Cardinal(XInternAtom(display, "CARDINAL", False))
+    , VisualId(XInternAtom(display, "VISUALID", False))
+    , NetMoveResizeWindow(XInternAtom(display, "_NET_MOVERESIZE_WINDOW", False))
+    , NetFrameExtents(XInternAtom(display, "_NET_FRAME_EXTENTS", False))
+    , NetClientList(XInternAtom(display, "_NET_CLIENT_LIST", False))
+    , NetWmStrut(XInternAtom(display, "_NET_WM_STRUT", False))
+    , NetWmStrutPartial(XInternAtom(display, "_NET_WM_STRUT_PARTIAL", False))
+    , NetWmStateFullscreen(XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False))
+    , NetWmStateBelow(XInternAtom(display, "_NET_WM_STATE_BELOW", False))
+    , NetWmStateAbove(XInternAtom(display, "_NET_WM_STATE_ABOVE", False))
+    , NetWmState(XInternAtom(display, "_NET_WM_STATE", False))
+    , NetWmDesktop(XInternAtom(display, "_NET_WM_DESKTOP", False))
+    , NetWmStateAdd(XInternAtom(display, "_NET_WM_STATE_ADD", False))
+    , NetWmStateMaximizedVert(XInternAtom(display,  "_NET_WM_STATE_MAXIMIZED_VERT", False))
+    , NetWmStateMaximizedHoriz(XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_HORZ", False))
+    , NetWmStateShaded(XInternAtom(display, "_NET_WM_STATE_SHADED", False))
+    {
+    }
+
+    Geometry getGeometry(Window w) const {
+        Window root;
+        return getGeometry(w, &root);
+    }
+
+    Geometry getGeometry(Window w, Window *root) const {
+        Geometry returnValue;
+        unsigned int borderWidth;
+        unsigned int depth;
+        Status s = XGetGeometry(display, w, root,  &returnValue.x, &returnValue.y,
+                    &returnValue.size.width, &returnValue.size.height, &borderWidth, &depth);
+        if (!s)
+            throw "Can't get window geometry";
+        return returnValue;
+    }
+
 };
 
 static std::vector<Geometry> monitors;
-static Geometry rootGeom;
 static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage()
 static bool nodo = false;
 static int border = 0;
@@ -128,24 +154,18 @@ usage()
 }
 
 static int
-getMonitor(Display *x11, Window win)
+getMonitor(const X11Env &x11, Window win)
 {
     Window winroot;
     Status s;
-    int x = 0, y = 0;
-    unsigned int w = 0, h = 0, bw, bd;
-    s = XGetGeometry(x11, win, &winroot,  &x, &y, &w, &h, &bw, &bd);
-    if (!s) {
-        std::cerr << "Can't get root window geometry" << std::endl;
-        return 0;
-    }
-    s = XTranslateCoordinates(x11, win, winroot,  x, y, &x, &y, &winroot);
+    Geometry geom = x11.getGeometry(win, &winroot);
+    s = XTranslateCoordinates(x11.display, win, winroot,  geom.x, geom.y, &geom.x, &geom.y, &winroot);
     if (!s) {
         std::cerr << "Can't translate root window coordinates" << std::endl;
         return 0;
     }
-    int midX = x + w / 2;
-    int midY = y + h / 2;
+    int midX = geom.x + geom.size.width / 2;
+    int midY = geom.y + geom.size.height / 2;
 
     /*
      * XXX: really need to sort by area of window on the monitor:
@@ -162,7 +182,7 @@ getMonitor(Display *x11, Window win)
 }
 
 void
-PartialStrut::box(Geometry &g)
+PartialStrut::box(const X11Env &x11, Geometry &g)
 {
     if (rtop.aligned(g.x, g.size.width) && top > g.y) {
         g.size.height -= top - g.y;
@@ -173,26 +193,26 @@ PartialStrut::box(Geometry &g)
         g.x = left;
     }
     long winend = g.y + g.size.height;
-    long strutend = rootGeom.size.height - bottom;
+    long strutend = x11.rootGeom.size.height - bottom;
     if (rbottom.aligned(g.x, g.size.width) && strutend < winend)
         g.size.height -= winend - strutend;
     winend = g.x + g.size.width;
-    strutend = rootGeom.size.width - right;
+    strutend = x11.rootGeom.size.width - right;
     if (rright.aligned(g.y, g.size.height) && strutend < winend)
         g.size.width -= winend - strutend;
 }
 
 static void
-detectMonitors(Display *x11, const Atoms &a)
+detectMonitors(const X11Env &x11)
 {
     // If xinerama is present, use it.
     int eventBase, eventError;
-    if (XineramaQueryExtension(x11, &eventBase, &eventError) == 0) {
+    if (XineramaQueryExtension(x11.display, &eventBase, &eventError) == 0) {
         monitors.resize(1);
-        monitors[0] = rootGeom;
+        monitors[0] = x11.rootGeom;
     } else {
         int monitorCount;
-        XineramaScreenInfo *xineramaMonitors = XineramaQueryScreens(x11, &monitorCount);
+        XineramaScreenInfo *xineramaMonitors = XineramaQueryScreens(x11.display, &monitorCount);
         if (xineramaMonitors == 0) {
             std::cerr << "have xinerama, but can't get monitor info" << std::endl;
             exit(1);
@@ -209,7 +229,7 @@ detectMonitors(Display *x11, const Atoms &a)
 }
 
 void
-adjustForStruts(Display *x11, Geometry *g, const Atoms &a, long targetDesktop)
+adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
 {
     Atom actualType;
     int actualFormat;
@@ -217,8 +237,8 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a, long targetDesktop)
     unsigned long afterBytes;
     unsigned char *prop;
     // get a list of all clients, so we can adjust monitor sizes for extents.
-    int rc = XGetWindowProperty(x11, XDefaultRootWindow(x11), a.NetClientList,
-            0, std::numeric_limits<long>::max(), False, a.Window,
+    int rc = XGetWindowProperty(x11.display, XDefaultRootWindow(x11.display), x11.NetClientList,
+            0, std::numeric_limits<long>::max(), False, x11.AWindow,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount <= 0 ) {
         std::cerr << "can't list clients to do strut processing" << std::endl;
@@ -228,20 +248,20 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a, long targetDesktop)
     Window *w = (Window *)prop;
     for (size_t i = itemCount; i-- > 0;) {
         // if the window is on the same desktop...
-        rc = XGetWindowProperty(x11, w[i], a.NetWmDesktop, 0,
-                std::numeric_limits<long>::max(), False, a.Cardinal,
+        rc = XGetWindowProperty(x11.display, w[i], x11.NetWmDesktop, 0,
+                std::numeric_limits<long>::max(), False, x11.Cardinal,
                 &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
         if (rc == 0) {
             long clipDesktop = *(long *)prop;
             XFree(prop);
             if (clipDesktop == targetDesktop || clipDesktop == -1 || targetDesktop == -1) {
-                rc = XGetWindowProperty(x11, w[i], a.NetWmStrutPartial,
-                    0, std::numeric_limits<long>::max(), False, a.Cardinal,
+                rc = XGetWindowProperty(x11.display, w[i], x11.NetWmStrutPartial,
+                    0, std::numeric_limits<long>::max(), False, x11.Cardinal,
                     &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
                 if (rc == 0) {
                     if (itemCount == 12 && actualFormat == 32) {
                         PartialStrut *strut = (PartialStrut *)prop;
-                        strut->box(*g);
+                        strut->box(x11, *g);
                     }
                     XFree(prop);
                 }
@@ -251,20 +271,20 @@ adjustForStruts(Display *x11, Geometry *g, const Atoms &a, long targetDesktop)
 }
 
 static Window
-pick(Display *x11, Window root)
+pick(const X11Env &x11)
 {
-    Window w = root;
-    Cursor c = XCreateFontCursor(x11, XC_question_arrow);
+    Window w = x11.root;
+    Cursor c = XCreateFontCursor(x11.display, XC_question_arrow);
 
-    if (XGrabPointer(x11, root, False, ButtonPressMask|ButtonReleaseMask,
+    if (XGrabPointer(x11.display, x11.root, False, ButtonPressMask|ButtonReleaseMask,
             GrabModeSync, GrabModeAsync, None, c, CurrentTime) != GrabSuccess) {
         throw "can't grab pointer";
     }
 
     for (bool done = false; !done;) {
         XEvent event;
-        XAllowEvents(x11, SyncPointer, CurrentTime);
-        XWindowEvent(x11, root, ButtonPressMask|ButtonReleaseMask, &event);
+        XAllowEvents(x11.display, SyncPointer, CurrentTime);
+        XWindowEvent(x11.display, x11.root, ButtonPressMask|ButtonReleaseMask, &event);
         switch (event.type) {
             case ButtonPress:
                 if (event.xbutton.button == 1 && event.xbutton.subwindow != None)
@@ -275,13 +295,13 @@ pick(Display *x11, Window root)
                 break;
         }
     }
-    XUngrabPointer(x11, CurrentTime);
-    XFreeCursor(x11, c);
-    return XmuClientWindow(x11, w);
+    XUngrabPointer(x11.display, CurrentTime);
+    XFreeCursor(x11.display, c);
+    return XmuClientWindow(x11.display, w);
 }
 
 static Window
-active(Display *x11, Window root, const Atoms &a)
+active(const X11Env &x11)
 {
     // Find active window from WM.
     Atom actualType;
@@ -289,8 +309,8 @@ active(Display *x11, Window root, const Atoms &a)
     unsigned long itemCount;
     unsigned long afterBytes;
     unsigned char *prop;
-    int rc = XGetWindowProperty(x11, root, a.NetActiveWindow,
-            0, std::numeric_limits<long>::max(), False, a.Window,
+    int rc = XGetWindowProperty(x11.display, x11.root, x11.NetActiveWindow,
+            0, std::numeric_limits<long>::max(), False, x11.AWindow,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     // XXX: xfce strangely has two items here, second appears to be zero.
     if (rc != 0 || actualFormat != 32 || itemCount < 1) {
@@ -317,7 +337,7 @@ getGeom(const char *val, int &numerator, unsigned &denominator, unsigned &extent
 }
 
 static void
-toggleFlag(Display *x11, Window root, Window win, const Atoms a, const Atom toggle)
+toggleFlag(const X11Env &x11, Window win, const Atom toggle)
 {
     XEvent e;
     XClientMessageEvent &ec = e.xclient;
@@ -325,16 +345,40 @@ toggleFlag(Display *x11, Window root, Window win, const Atoms a, const Atom togg
     ec.type = ClientMessage;
     ec.serial = 1;
     ec.send_event = True;
-    ec.message_type = a.NetWmState;
+    ec.message_type = x11.NetWmState;
     ec.window = win;
     ec.format = 32;
     ec.data.l[0] = 2; //_NET_WM_STATE_TOGGLE;
     ec.data.l[1] = toggle;
-    ec.data.l[2] = toggle == a.NetWmStateMaximizedHoriz ?  a.NetWmStateMaximizedVert : 0 ;
+    ec.data.l[2] = toggle == x11.NetWmStateMaximizedHoriz ?  x11.NetWmStateMaximizedVert : 0 ;
     ec.data.l[3] = 1;
-    if (!XSendEvent(x11, root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e))
+    if (!XSendEvent(x11.display, x11.root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e))
         std::cerr << "can't go fullscreen" << std::endl;
-    XSync(x11, False);
+    XSync(x11.display, False);
+}
+
+static void
+moveWindow(const X11Env &x11, Window win, const Geometry &geom)
+{
+    // Tell the WM where to put it.
+    Geometry g = x11.getGeometry(win);
+    XEvent e;
+    XClientMessageEvent &ec = e.xclient;
+    ec.type = ClientMessage;
+    ec.serial = 1;
+    ec.send_event = True;
+    ec.message_type = x11.NetMoveResizeWindow;
+    ec.window = win;
+    ec.format = 32;
+    ec.data.l[0] = 0xf0a;
+    ec.data.l[1] = geom.x;
+    ec.data.l[2] = geom.y;
+    ec.data.l[3] = geom.size.width;
+    ec.data.l[4] = geom.size.height;
+    if (!nodo) {
+        XSendEvent(x11.display, x11.root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e);
+        XSync(x11.display, False);
+    }
 }
 
 int
@@ -345,13 +389,12 @@ main(int argc, char *argv[])
 
     std::list<Atom> toggles;
 
-    Display *x11 = XOpenDisplay(0);
-    if (x11 == 0) {
+    Display *display = XOpenDisplay(0);
+    if (display == 0) {
         std::clog << "failed to open display: set DISPLAY environment variable" << std::endl;
         return 1;
     }
-    Atoms a(x11);
-    Window root = XDefaultRootWindow(x11);
+    X11Env x11(display);
 
     while ((c = getopt(argc, argv, "ab:g:ns:fmpuh")) != -1) {
         switch (c) {
@@ -368,43 +411,35 @@ main(int argc, char *argv[])
                 nodo = true;
                 break;
             case 'f':
-                toggles.push_back(a.NetWmStateFullscreen);
+                toggles.push_back(x11.NetWmStateFullscreen);
                 break;
             case 'm':
-                toggles.push_back(a.NetWmStateMaximizedHoriz);
+                toggles.push_back(x11.NetWmStateMaximizedHoriz);
                 break;
             case 'h':
-                toggles.push_back(a.NetWmStateShaded);
+                toggles.push_back(x11.NetWmStateShaded);
                 break;
             case 'a':
-                toggles.push_back(a.NetWmStateAbove);
+                toggles.push_back(x11.NetWmStateAbove);
                 break;
             case 'u':
-                toggles.push_back(a.NetWmStateBelow);
+                toggles.push_back(x11.NetWmStateBelow);
                 break;
         }
     }
 
     // Which window are we modifying?
-    Window win = doPick ? pick(x11, root) : active(x11, root, a);
+    Window win = doPick ? pick(x11) : active(x11);
 
     // If we're doing state toggles, do them now.
-    if (toggles.size() > 0) {
-        for (auto atom : toggles)
-            toggleFlag(x11, root, win, a, atom);
-    }
+    for (auto atom : toggles)
+        toggleFlag(x11, win, atom);
+
     if (argc == optind)
         return 0;
 
     // Get the geometry of the monitors.
-    detectMonitors(x11, a);
-
-    // Get geometry of root window.
-    Window tmp;
-    unsigned bw, bd;
-    XGetGeometry(x11, root, &tmp,  &rootGeom.x, &rootGeom.y, &rootGeom.size.width, &rootGeom.size.height, &bw, &bd);
-
-
+    detectMonitors(x11);
 
     /*
      * get the extent of the frame around the window: we assume the new frame
@@ -418,8 +453,8 @@ main(int argc, char *argv[])
     const long *frame;
     unsigned char *prop;
     long desktop;
-    int rc = XGetWindowProperty(x11, win, a.NetFrameExtents,
-            0, std::numeric_limits<long>::max(), False, a.Cardinal,
+    int rc = XGetWindowProperty(x11.display, win, x11.NetFrameExtents,
+            0, std::numeric_limits<long>::max(), False, x11.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount != 4) {
         std::cerr << "can't find frame sizes" << std::endl;
@@ -429,12 +464,11 @@ main(int argc, char *argv[])
         frame = (long *)prop;
     }
 
-    rc = XGetWindowProperty(x11, win, a.NetWmDesktop, 0,
-            std::numeric_limits<long>::max(), False, a.Cardinal,
+    rc = XGetWindowProperty(x11.display, win, x11.NetWmDesktop, 0,
+            std::numeric_limits<long>::max(), False, x11.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
 
     desktop = rc == 0 ? *(long *)prop : 0xffffffff;
-
 
     // now work out where to put the window.
     struct Grid {
@@ -524,7 +558,6 @@ main(int argc, char *argv[])
                     window.size.height /= 2;
                     window.y += window.size.height / 2;
                     break;
-
                 default:
                     usage();
             }
@@ -536,7 +569,7 @@ main(int argc, char *argv[])
     window.y += monitor.y;
 
     // make sure the window doesn't cover any struts.
-    adjustForStruts(x11, &window, a, desktop);
+    adjustForStruts(x11, &window, desktop);
 
     // Now have the geometry for the frame. Adjust to client window size,
     // assuming frame will remain the same.
@@ -544,24 +577,5 @@ main(int argc, char *argv[])
     window.size.height -= frame[2] + frame[3] + border * 2;
     window.x += frame[0] + border;
     window.y += frame[2] + border;
-
-    // Tell the WM where to put it.
-    XEvent e;
-    XClientMessageEvent &ec = e.xclient;
-    ec.type = ClientMessage;
-    ec.serial = 1;
-    ec.send_event = True;
-    ec.message_type = a.NetMoveResizeWindow;
-    ec.window = win;
-    ec.format = 32;
-    ec.data.l[0] = 0xf0a;
-    ec.data.l[1] = window.x;
-    ec.data.l[2] = window.y;
-    ec.data.l[3] = window.size.width;
-    ec.data.l[4] = window.size.height;
-
-    if (!nodo) {
-        XSendEvent(x11, root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e);
-        XSync(x11, False);
-    }
+    moveWindow(x11, win, window);
 }
