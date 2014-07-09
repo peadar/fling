@@ -361,7 +361,6 @@ static void
 moveWindow(const X11Env &x11, Window win, const Geometry &geom)
 {
     // Tell the WM where to put it.
-    Geometry g = x11.getGeometry(win);
     XEvent e;
     XClientMessageEvent &ec = e.xclient;
     ec.type = ClientMessage;
