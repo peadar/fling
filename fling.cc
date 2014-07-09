@@ -50,49 +50,39 @@ struct X11Env {
     Display *display;
     Window root;
     Geometry rootGeom;
+    std::vector<Geometry> monitors;
 
-    Atom NetActiveWindow;
-    Atom AWindow;
-    Atom Cardinal;
-    Atom VisualId;
-    Atom NetMoveResizeWindow;
-    Atom NetFrameExtents;
-    Atom NetClientList;
-    Atom NetWmStrut;
-    Atom NetWmStrutPartial;
-    Atom NetWmStateFullscreen;
-    Atom NetWmStateBelow;
-    Atom NetWmStateAbove;
-    Atom NetWmState;
-    Atom NetWmDesktop;
-    Atom NetWmStateAdd;
-    Atom NetWmStateMaximizedVert;
-    Atom NetWmStateMaximizedHoriz;
-    Atom NetWmStateShaded;
     X11Env(Display *display_)
     : display(display_)
     , root(XDefaultRootWindow(display))
     , rootGeom(getGeometry(root))
-    , NetActiveWindow(XInternAtom(display, "_NET_ACTIVE_WINDOW", False))
-    , AWindow(XInternAtom(display, "WINDOW", False))
-    , Cardinal(XInternAtom(display, "CARDINAL", False))
-    , VisualId(XInternAtom(display, "VISUALID", False))
-    , NetMoveResizeWindow(XInternAtom(display, "_NET_MOVERESIZE_WINDOW", False))
-    , NetFrameExtents(XInternAtom(display, "_NET_FRAME_EXTENTS", False))
-    , NetClientList(XInternAtom(display, "_NET_CLIENT_LIST", False))
-    , NetWmStrut(XInternAtom(display, "_NET_WM_STRUT", False))
-    , NetWmStrutPartial(XInternAtom(display, "_NET_WM_STRUT_PARTIAL", False))
-    , NetWmStateFullscreen(XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False))
-    , NetWmStateBelow(XInternAtom(display, "_NET_WM_STATE_BELOW", False))
-    , NetWmStateAbove(XInternAtom(display, "_NET_WM_STATE_ABOVE", False))
-    , NetWmState(XInternAtom(display, "_NET_WM_STATE", False))
-    , NetWmDesktop(XInternAtom(display, "_NET_WM_DESKTOP", False))
-    , NetWmStateAdd(XInternAtom(display, "_NET_WM_STATE_ADD", False))
-    , NetWmStateMaximizedVert(XInternAtom(display,  "_NET_WM_STATE_MAXIMIZED_VERT", False))
-    , NetWmStateMaximizedHoriz(XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_HORZ", False))
-    , NetWmStateShaded(XInternAtom(display, "_NET_WM_STATE_SHADED", False))
+
     {
+        detectMonitors();
     }
+
+    Atom atom(const char *name) { return XInternAtom(display, name, False); }
+
+    Atom NetActiveWindow = atom("_NET_ACTIVE_WINDOW");
+    Atom AWindow = atom("WINDOW");
+    Atom Cardinal = atom("CARDINAL");
+    Atom VisualId = atom("VISUALID");
+    Atom NetMoveResizeWindow = atom("_NET_MOVERESIZE_WINDOW");
+    Atom NetFrameExtents = atom("_NET_FRAME_EXTENTS");
+    Atom NetClientList = atom("_NET_CLIENT_LIST");
+    Atom NetWmStrut = atom("_NET_WM_STRUT");
+    Atom NetWmStrutPartial = atom("_NET_WM_STRUT_PARTIAL");
+    Atom NetWmStateFullscreen = atom("_NET_WM_STATE_FULLSCREEN");
+    Atom NetWmStateBelow = atom("_NET_WM_STATE_BELOW");
+    Atom NetWmStateAbove = atom("_NET_WM_STATE_ABOVE");
+    Atom NetWmState = atom("_NET_WM_STATE");
+    Atom NetWmDesktop = atom("_NET_WM_DESKTOP");
+    Atom NetWmStateAdd = atom("_NET_WM_STATE_ADD");
+    Atom NetWmStateMaximizedVert = atom("_NET_WM_STATE_MAXIMIZED_VERT");
+    Atom NetWmStateMaximizedHoriz = atom("_NET_WM_STATE_MAXIMIZED_HORZ");
+    Atom NetWmStateShaded = atom("_NET_WM_STATE_SHADED");
+
+    void detectMonitors(); // Get the geometry of the monitors.
 
     Geometry getGeometry(Window w) const {
         Window root;
@@ -110,9 +100,11 @@ struct X11Env {
         return returnValue;
     }
 
+    Window pick(); // pick a window on the display using the mouse.
+    Window active(); // find active window
+    int monitorForWindow(Window); // find index of monitor on which a window lies.
 };
 
-static std::vector<Geometry> monitors;
 static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage()
 static bool nodo = false;
 static int border = 0;
@@ -153,13 +145,13 @@ usage()
     exit(1);
 }
 
-static int
-getMonitor(const X11Env &x11, Window win)
+int
+X11Env::monitorForWindow(Window win)
 {
     Window winroot;
     Status s;
-    Geometry geom = x11.getGeometry(win, &winroot);
-    s = XTranslateCoordinates(x11.display, win, winroot,  geom.x, geom.y, &geom.x, &geom.y, &winroot);
+    Geometry geom = getGeometry(win, &winroot);
+    s = XTranslateCoordinates(display, win, winroot,  geom.x, geom.y, &geom.x, &geom.y, &winroot);
     if (!s) {
         std::cerr << "Can't translate root window coordinates" << std::endl;
         return 0;
@@ -202,17 +194,17 @@ PartialStrut::box(const X11Env &x11, Geometry &g)
         g.size.width -= winend - strutend;
 }
 
-static void
-detectMonitors(const X11Env &x11)
+void
+X11Env::detectMonitors()
 {
     // If xinerama is present, use it.
     int eventBase, eventError;
-    if (XineramaQueryExtension(x11.display, &eventBase, &eventError) == 0) {
+    if (XineramaQueryExtension(display, &eventBase, &eventError) == 0) {
         monitors.resize(1);
-        monitors[0] = x11.rootGeom;
+        monitors[0] = rootGeom;
     } else {
         int monitorCount;
-        XineramaScreenInfo *xineramaMonitors = XineramaQueryScreens(x11.display, &monitorCount);
+        XineramaScreenInfo *xineramaMonitors = XineramaQueryScreens(display, &monitorCount);
         if (xineramaMonitors == 0) {
             std::cerr << "have xinerama, but can't get monitor info" << std::endl;
             exit(1);
@@ -270,21 +262,21 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
     }
 }
 
-static Window
-pick(const X11Env &x11)
+Window
+X11Env::pick()
 {
-    Window w = x11.root;
-    Cursor c = XCreateFontCursor(x11.display, XC_question_arrow);
+    Window w = root;
+    Cursor c = XCreateFontCursor(display, XC_question_arrow);
 
-    if (XGrabPointer(x11.display, x11.root, False, ButtonPressMask|ButtonReleaseMask,
+    if (XGrabPointer(display, root, False, ButtonPressMask|ButtonReleaseMask,
             GrabModeSync, GrabModeAsync, None, c, CurrentTime) != GrabSuccess) {
         throw "can't grab pointer";
     }
 
     for (bool done = false; !done;) {
         XEvent event;
-        XAllowEvents(x11.display, SyncPointer, CurrentTime);
-        XWindowEvent(x11.display, x11.root, ButtonPressMask|ButtonReleaseMask, &event);
+        XAllowEvents(display, SyncPointer, CurrentTime);
+        XWindowEvent(display, root, ButtonPressMask|ButtonReleaseMask, &event);
         switch (event.type) {
             case ButtonPress:
                 if (event.xbutton.button == 1 && event.xbutton.subwindow != None)
@@ -295,13 +287,13 @@ pick(const X11Env &x11)
                 break;
         }
     }
-    XUngrabPointer(x11.display, CurrentTime);
-    XFreeCursor(x11.display, c);
-    return XmuClientWindow(x11.display, w);
+    XUngrabPointer(display, CurrentTime);
+    XFreeCursor(display, c);
+    return XmuClientWindow(display, w);
 }
 
-static Window
-active(const X11Env &x11)
+Window
+X11Env::active()
 {
     // Find active window from WM.
     Atom actualType;
@@ -309,8 +301,8 @@ active(const X11Env &x11)
     unsigned long itemCount;
     unsigned long afterBytes;
     unsigned char *prop;
-    int rc = XGetWindowProperty(x11.display, x11.root, x11.NetActiveWindow,
-            0, std::numeric_limits<long>::max(), False, x11.AWindow,
+    int rc = XGetWindowProperty(display, root, NetActiveWindow,
+            0, std::numeric_limits<long>::max(), False, AWindow,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     // XXX: xfce strangely has two items here, second appears to be zero.
     if (rc != 0 || actualFormat != 32 || itemCount < 1) {
@@ -428,17 +420,15 @@ main(int argc, char *argv[])
     }
 
     // Which window are we modifying?
-    Window win = doPick ? pick(x11) : active(x11);
+    Window win = doPick ? x11.pick() : x11.active();
 
     // If we're doing state toggles, do them now.
     for (auto atom : toggles)
         toggleFlag(x11, win, atom);
 
+    // If nothing else to do, just exit.
     if (argc == optind)
         return 0;
-
-    // Get the geometry of the monitors.
-    detectMonitors(x11);
 
     /*
      * get the extent of the frame around the window: we assume the new frame
@@ -493,8 +483,8 @@ main(int argc, char *argv[])
     };
 
     if (screen == -1)
-        screen = getMonitor(x11, win);
-    Geometry &monitor = monitors[screen];
+        screen = x11.monitorForWindow(win);
+    const Geometry &monitor = x11.monitors[screen];
 
     Grid *data = 0;
     Grid manual;
