@@ -453,10 +453,13 @@ main(int argc, char *argv[])
         frame = (long *)prop;
     }
 
+    /*
+     * Find desktop of the window in question - we ignore windows on other
+     * desktops for struts avoidance, etc.
+     */
     rc = XGetWindowProperty(x11.display, win, x11.NetWmDesktop, 0,
             std::numeric_limits<long>::max(), False, x11.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-
     desktop = rc == 0 ? *(long *)prop : 0xffffffff;
 
     // now work out where to put the window.
@@ -537,14 +540,16 @@ main(int argc, char *argv[])
                 case '.':
                     break;
                 case 'r':
-                    // right move - move to right, and then...
+                    // move to right
                     window.x += window.size.width * (100 - scale) / 100;
+                    // and then...
                 case 'l':
-                    // left move - cut out right hand side.
+                    // cut out right hand side.
                     window.size.width = window.size.width * scale / 100;
                     break;
                 case 'd':
                     window.y += window.size.height * (100 - scale) / 100;
+                    // and then...
                 case 'u':
                     window.size.height = window.size.height * scale / 100;
                     break;
