@@ -522,31 +522,46 @@ main(int argc, char *argv[])
         window.y = 0;
         char c;
         for (const char *path = argv[optind]; (c = *path) != 0; ++path) {
+            int scale;
+            if (isdigit(c)) {
+                char *newpath;
+                scale = strtol(path, &newpath, 10);
+                path = newpath;
+                c = *path;
+                if (scale >= 100 || scale <= 0)
+                    usage();
+            } else {
+                scale = 50;
+            }
             switch (c) {
                 case '.':
                     break;
                 case 'r':
                     // right move - move to right, and then...
-                    window.x += window.size.width / 2;
+                    window.x += window.size.width * (100 - scale) / 100;
                 case 'l':
                     // left move - cut out right hand side.
-                    window.size.width /= 2;
+                    window.size.width = window.size.width * scale / 100;
                     break;
                 case 'd':
-                    window.y += window.size.height / 2;
+                    window.y += window.size.height * (100 - scale) / 100;
                 case 'u':
-                    window.size.height /= 2;
+                    window.size.height = window.size.height * scale / 100;
                     break;
-                case 'h':
+                case 'h': {
                     // reduce horizontal size and centre
-                    window.size.width /= 2;
-                    window.x += window.size.width / 2;
+                    int newsize = window.size.width * scale / 100;
+                    window.x += (window.size.width - newsize) / 2;
+                    window.size.width = newsize;
                     break;
-                case 'v':
+                }
+                case 'v': {
                     // reduce vertical size and centre
-                    window.size.height /= 2;
-                    window.y += window.size.height / 2;
+                    int newsize = window.size.height * scale / 100;
+                    window.y += (window.size.height - newsize) / 2;
+                    window.size.height = newsize;
                     break;
+                }
                 default:
                     usage();
             }
