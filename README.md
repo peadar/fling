@@ -20,19 +20,11 @@ If the argument does not match the above, then it is considered a control string
 * h: retain 50% of the existing width, and centre in the existing horizontal space
 * v: retain 50% of the existing height, and centre in the existing vertical space
 
-More control is available using fraction-like notation:
+You can precede each of these characters with a percentage of the window to leave, eg: 
 
-    $ fling 1/3 2/2
+    $ fling 30d
 
-makes the window occupy the first third of the X axis, and the 2nd half
-of the Y axis (ie, bottom left, but only 1/3rd the width of the screen)
-
-You can add a ":" after the fractional bit to indicate a span, eg:
-
-    $ fling 1/3:2 2/2
-
-Makes the window shift to the bottom left, occupying the bottom half,
-and leftmost two-thirds of the screen.
+makes the window occupy the bottom 30% of the monitor.
 
 xinerama is supported: use "-s \<num\>" to shift from the current xinerama
 monitor.

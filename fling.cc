@@ -462,26 +462,20 @@ main(int argc, char *argv[])
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     desktop = rc == 0 ? *(long *)prop : 0xffffffff;
 
-    // now work out where to put the window.
-    struct Grid {
-        Size screen;
-        Geometry window;
-    };
-
-    struct shortcut {
+    struct alias {
         const char *name;
-        Grid data;
+        const char *alias;
     };
 
-    shortcut shortcuts[] = {
-        { "top",        { { 1, 2 }, { { 1, 1 }, 0, 0 }} } ,
-        { "bottom",     { { 1, 2 }, { { 1, 1 }, 0, 1 }} } ,
-        { "left",       { { 2, 1 }, { { 1, 1 }, 0, 0 }} } ,
-        { "right",      { { 2, 1 }, { { 1, 1 }, 1, 0 }} } ,
-        { "topleft",    { { 2, 2 }, { { 1, 1 }, 0, 0 }} } ,
-        { "topright",   { { 2, 2 }, { { 1, 1 }, 1, 0 }} } ,
-        { "bottomleft", { { 2, 2 }, { { 1, 1 }, 0, 1 }} } ,
-        { "bottomright",{ { 2, 2 }, { { 1, 1 }, 1, 1 }} } ,
+    alias aliases[] = {
+        { "top",        "u" },
+        { "bottom",     "d" },
+        { "left",       "l" },
+        { "right",      "r" },
+        { "topleft",    "ul" },
+        { "topright",   "ur" },
+        { "bottomleft", "dl" },
+        { "bottomright", "dr" },
         { 0 }
     };
 
@@ -489,87 +483,65 @@ main(int argc, char *argv[])
         screen = x11.monitorForWindow(win);
     const Geometry &monitor = x11.monitors[screen];
 
-    Grid *data = 0;
-    Grid manual;
-    Geometry window;
-
-    if (argc - optind == 1) {
-        for (shortcut *sc = shortcuts;; sc++) {
-            if (sc->name == 0)
-                break;
-            if (strcmp(argv[optind], sc->name) == 0) {
-                data = &sc->data;
-                break;
-            }
+    const char *location = argv[optind];
+    for (alias *sc = aliases; sc->name; sc++) {
+        if (strcmp(location, sc->name) == 0) {
+            location = sc->alias;
+            break;
         }
-    } else if (argc - optind == 2) {
-        data = &manual;
-        getGeom(argv[optind++], data->window.x, data->screen.width, data->window.size.width);
-        getGeom(argv[optind++], data->window.y, data->screen.height, data->window.size.height);
-        manual.window.x--;
-        manual.window.y--;
     }
 
-    if (data) {
-        // original fractional spec.
-        window.size.width = monitor.size.width * data->window.size.width / data->screen.width;
-        window.size.height = monitor.size.height * data->window.size.height / data->screen.height;
-        window.x = monitor.size.width * data->window.x / data->screen.width;
-        window.y = monitor.size.height * data->window.y / data->screen.height;
-    } else {
-        // macro-style "up" "down" "left" "right"
-
-        // start with monitor-sized window at monitor's origin.
-        window.size = monitor.size;
-        window.x = 0;
-        window.y = 0;
-        char c;
-        for (const char *path = argv[optind]; (c = *path) != 0; ++path) {
-            int scale;
-            if (isdigit(c)) {
-                char *newpath;
-                scale = strtol(path, &newpath, 10);
-                path = newpath;
-                c = *path;
-                if (scale >= 100 || scale <= 0)
-                    usage();
-            } else {
-                scale = 50;
+    // start with monitor-sized window at monitor's origin.
+    Geometry window;
+    window.size = monitor.size;
+    window.x = 0;
+    window.y = 0;
+    char curChar;
+    for (const char *path = location; (curChar = *path) != 0; ++path) {
+        int scale;
+        if (isdigit(curChar)) {
+            char *newpath;
+            scale = strtol(path, &newpath, 10);
+            path = newpath;
+            curChar = *path;
+            if (scale >= 100 || scale <= 0)
+                usage();
+        } else {
+            scale = 50;
+        }
+        switch (curChar) {
+            case '.':
+                break;
+            case 'r':
+                // move to right
+                window.x += window.size.width * (100 - scale) / 100;
+                // and then...
+            case 'l':
+                // cut out right hand side.
+                window.size.width = window.size.width * scale / 100;
+                break;
+            case 'd':
+                window.y += window.size.height * (100 - scale) / 100;
+                // and then...
+            case 'u':
+                window.size.height = window.size.height * scale / 100;
+                break;
+            case 'h': {
+                // reduce horizontal size and centre
+                int newsize = window.size.width * scale / 100;
+                window.x += (window.size.width - newsize) / 2;
+                window.size.width = newsize;
+                break;
             }
-            switch (c) {
-                case '.':
-                    break;
-                case 'r':
-                    // move to right
-                    window.x += window.size.width * (100 - scale) / 100;
-                    // and then...
-                case 'l':
-                    // cut out right hand side.
-                    window.size.width = window.size.width * scale / 100;
-                    break;
-                case 'd':
-                    window.y += window.size.height * (100 - scale) / 100;
-                    // and then...
-                case 'u':
-                    window.size.height = window.size.height * scale / 100;
-                    break;
-                case 'h': {
-                    // reduce horizontal size and centre
-                    int newsize = window.size.width * scale / 100;
-                    window.x += (window.size.width - newsize) / 2;
-                    window.size.width = newsize;
-                    break;
-                }
-                case 'v': {
-                    // reduce vertical size and centre
-                    int newsize = window.size.height * scale / 100;
-                    window.y += (window.size.height - newsize) / 2;
-                    window.size.height = newsize;
-                    break;
-                }
-                default:
-                    usage();
+            case 'v': {
+                // reduce vertical size and centre
+                int newsize = window.size.height * scale / 100;
+                window.y += (window.size.height - newsize) / 2;
+                window.size.height = newsize;
+                break;
             }
+            default:
+                usage();
         }
     }
 
