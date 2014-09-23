@@ -1,4 +1,5 @@
 #include <iostream>
+#include <set>
 #include <unistd.h>
 #include <X11/cursorfont.h>
 #include <limits>
@@ -16,16 +17,19 @@
 
 struct X11Env;
 
-
 struct Size {
     unsigned width;
     unsigned height;
+    bool operator < (const Size &) const;
+    bool canContain(const Size &s) const { return width >= s.width && height >= s.height; }
+    unsigned area() const { return width * height; }
 };
 
 struct Geometry {
     Size size;
     int x;
     int y;
+    bool operator < (const Geometry &rhs) const;
 };
 
 struct Range {
@@ -87,4 +91,13 @@ struct X11Env {
     int monitorForWindow(Window); // find index of monitor on which a window lies.
 };
 
+
+class Spaces {
+public:
+    Geometry fit(const Size &size);
+private:
+    void occlude(const Geometry &space);
+    std::set<Geometry> emptySpace;
+    Spaces(const Geometry &workspace);
+};
 

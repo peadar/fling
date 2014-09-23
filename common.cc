@@ -195,3 +195,25 @@ X11Env::toggleFlag(Window win, const Atom toggle) const
         std::cerr << "can't go fullscreen" << std::endl;
     XSync(display, False);
 }
+
+bool
+Geometry::operator < (const Geometry &rhs) const
+{
+    if (size < rhs.size)
+        return true;
+    if (x < rhs.x)
+        return true;
+    if (y < rhs.y)
+        return true;
+    return false;
+}
+
+bool
+Size::operator < (const Size &rhs) const
+{
+    if (width < rhs.width)
+        return true;
+    if (height < rhs.height)
+        return true;
+    return false;
+}
