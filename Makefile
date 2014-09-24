@@ -2,10 +2,10 @@ CXXFLAGS = -g -std=c++0x -Wall
 
 all:fling tile
 
-COMMON_OBJS += common.o
+COMMON_OBJS += common.o area.o
 
 FLING_OBJS += fling.o $(COMMON_OBJS)
-TILE_OBJS += area.o $(COMMON_OBJS)
+TILE_OBJS += tile.o $(COMMON_OBJS)
 
 fling: $(FLING_OBJS)
 	$(CXX) -o $@ $^ -lX11 -lXinerama -lXmu

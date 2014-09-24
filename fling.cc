@@ -48,26 +48,20 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
     unsigned long itemCount;
     unsigned long afterBytes;
     unsigned char *prop;
-    // get a list of all clients, so we can adjust monitor sizes for extents.
-    int rc = XGetWindowProperty(x11.display, XDefaultRootWindow(x11.display), x11.NetClientList,
-            0, std::numeric_limits<long>::max(), False, x11.AWindow,
-            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-    if (rc != 0 || actualFormat != 32 || itemCount <= 0 ) {
-        std::cerr << "can't list clients to do strut processing" << std::endl;
-        return;
-    }
 
-    Window *w = (Window *)prop;
-    for (size_t i = itemCount; i-- > 0;) {
+    std::vector<Window> windows;
+    X11Env::WindowList list = x11.getClientList();
+
+    for (Window w : list) {
         // if the window is on the same desktop...
-        rc = XGetWindowProperty(x11.display, w[i], x11.NetWmDesktop, 0,
+        int rc = XGetWindowProperty(x11.display, w, x11.NetWmDesktop, 0,
                 std::numeric_limits<long>::max(), False, x11.Cardinal,
                 &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
         if (rc == 0) {
             long clipDesktop = *(long *)prop;
             XFree(prop);
             if (clipDesktop == targetDesktop || clipDesktop == -1 || targetDesktop == -1) {
-                rc = XGetWindowProperty(x11.display, w[i], x11.NetWmStrutPartial,
+                rc = XGetWindowProperty(x11.display, w, x11.NetWmStrutPartial,
                     0, std::numeric_limits<long>::max(), False, x11.Cardinal,
                     &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
                 if (rc == 0) {

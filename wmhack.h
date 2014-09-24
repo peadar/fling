@@ -25,12 +25,16 @@ struct Size {
     unsigned area() const { return width * height; }
 };
 
+std::ostream &operator << (std::ostream &, const Size &);
+
 struct Geometry {
     Size size;
     int x;
     int y;
     bool operator < (const Geometry &rhs) const;
 };
+
+std::ostream &operator << (std::ostream &, const Geometry &);
 
 struct Range {
     long start;
@@ -89,6 +93,8 @@ struct X11Env {
     Window active(); // find active window
     void toggleFlag(Window win, const Atom toggle) const;
     int monitorForWindow(Window); // find index of monitor on which a window lies.
+    typedef std::vector<Window> WindowList;
+    WindowList getClientList() const;
 };
 
 

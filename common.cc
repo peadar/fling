@@ -1,4 +1,5 @@
 #include "wmhack.h"
+#include "json.h"
 
 X11Env::X11Env(Display *display_)
     : display(display_)
@@ -196,6 +197,30 @@ X11Env::toggleFlag(Window win, const Atom toggle) const
     XSync(display, False);
 }
 
+X11Env::WindowList
+X11Env::getClientList() const
+{
+    WindowList result;
+    Atom actualType;
+    int actualFormat;
+    unsigned long itemCount;
+    unsigned long afterBytes;
+    unsigned char *prop;
+
+    // get a list of all clients, so we can adjust monitor sizes for extents.
+    int rc = XGetWindowProperty(display, XDefaultRootWindow(display), NetClientList,
+            0, std::numeric_limits<long>::max(), False, AWindow,
+                    &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+    if (rc != 0 || actualFormat != 32 || itemCount <= 0 ) {
+        throw "Can't get client window list";
+    }
+    Window *w = (Window *)prop;
+    for (size_t i = 0; i < itemCount; ++i)
+        result.push_back(w[i]);
+    XFree(prop);
+    return result;
+}
+
 bool
 Geometry::operator < (const Geometry &rhs) const
 {
@@ -216,4 +241,9 @@ Size::operator < (const Size &rhs) const
     if (height < rhs.height)
         return true;
     return false;
+}
+
+std::ostream &
+operator << (std::ostream &os, const Size &size)
+{
 }

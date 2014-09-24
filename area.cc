@@ -22,5 +22,3 @@ Spaces::occlude(const Geometry &)
 {
 }
 
-
-
