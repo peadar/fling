@@ -246,4 +246,11 @@ Size::operator < (const Size &rhs) const
 std::ostream &
 operator << (std::ostream &os, const Size &size)
 {
+    return os << "{w:" << size.width << ", h:" << size.height << "}";
+}
+
+std::ostream &
+operator << (std::ostream &os, const Geometry &g)
+{
+    return os << "{size: " << g.size << ", x:" << g.x << ", y:" << g.y;
 }

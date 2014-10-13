@@ -4,16 +4,6 @@ static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage
 static bool nodo = false;
 static int border = 0;
 
-std::ostream &
-operator<<(std::ostream &os, const Geometry &m)
-{
-    return os << "{ w:" << m.size.width
-                << ", h: " << m.size.height
-                << ", x: " << m.x
-                << ", y: " << m.y
-                << " }";
-}
-
 static void
 usage()
 {
