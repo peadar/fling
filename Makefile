@@ -13,7 +13,7 @@ fling: $(FLING_OBJS)
 tile: $(TILE_OBJS)
 	$(CXX) -o $@ $^ -lX11 -lXinerama -lXmu
 clean:
-	rm -f tile fling $(COMMON_OBJS) fling.o area.o
+	rm -f tile fling $(COMMON_OBJS) fling.o tile.o
 
 install:
 	cp fling /usr/local/bin

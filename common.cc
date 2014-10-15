@@ -244,6 +244,31 @@ X11Env::windowType(Window w) const
     return rv;
 }
 
+std::set<Atom>
+X11Env::windowState(Window w) const
+{
+    std::set<Atom> rv;
+    Atom actualType;
+    int actualFormat;
+    unsigned long itemCount;
+    unsigned long afterBytes;
+    unsigned char *prop;
+
+    int rc = XGetWindowProperty(display, w, NetWmState,
+            0, std::numeric_limits<long>::max(), False, AnyPropertyType,
+            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+    if (rc == 0) {
+        if (prop != 0) {
+            Atom *atomp = (Atom *)prop;
+            while (itemCount--)
+                rv.insert(*atomp++);
+            XFree(prop);
+        }
+    }
+    return rv;
+}
+
+
 std::string
 X11Env::atomName(Atom a) const
 {

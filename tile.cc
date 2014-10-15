@@ -30,7 +30,8 @@ main()
     std::vector<WindowGeo> all;
     for (auto w : clients) {
         Atom type = x11.windowType(w);
-        if (type == x11.NetWmWindowTypeNormal) {
+        std::set<Atom> state = x11.windowState(w);
+        if (x11.monitorForWindow(w) == 0 && type == x11.NetWmWindowTypeNormal && state.find(x11.NetWmStateHidden) == state.end()) {
             Geometry g = x11.getGeometry(w); // this is relative to its parent, probably implemented by the WM
             Window win;
             XTranslateCoordinates(x11.display, w, x11.root, g.x, g.y, &g.x, &g.y, &win);
@@ -48,7 +49,20 @@ main()
     std::cout << "monitor: " << monitor << "\n";
 
     Spaces s(monitor);
-    for (const auto &item : all)
-        x11.setGeometry(item.w, s.fit(item.existing.size));
+    for (auto &item : all)
+        //x11.setGeometry(item.w, s.fit(item.existing.size));
+        item.updated = s.fit(item.existing.size);
+
+    std::clog << "have " << all.size() << " client windows\n";
+    for (const auto &item : all) {
+        std::cout << "window:" << item.w
+                << ", existing:" << item.existing
+                << ", updated:" << item.updated
+                << ", state:";
+        for (auto i : x11.windowState(item.w))
+            std::cout << x11.atomName(i) << ",";
+        std::cout << "}\n" ;
+    }
+    std::cout << "monitor: " << monitor << "\n";
 
 }

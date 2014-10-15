@@ -72,32 +72,37 @@ struct X11Env {
     std::vector<Geometry> monitors;
 
     X11Env(Display *display_);
+
     Atom atom(const char *name) { return XInternAtom(display, name, False); }
+
+    Atom AAtom = atom("ATOM");
+    Atom AWindow = atom("WINDOW");
+    Atom Cardinal = atom("CARDINAL");
     Atom NetActiveWindow = atom("_NET_ACTIVE_WINDOW");
+    Atom NetClientList = atom("_NET_CLIENT_LIST");
+    Atom NetFrameExtents = atom("_NET_FRAME_EXTENTS");
+    Atom NetMoveResizeWindow = atom("_NET_MOVERESIZE_WINDOW");
+    Atom NetWmDesktop = atom("_NET_WM_DESKTOP");
+    Atom NetWmStateAbove = atom("_NET_WM_STATE_ABOVE");
+    Atom NetWmStateAdd = atom("_NET_WM_STATE_ADD");
+    Atom NetWmState = atom("_NET_WM_STATE");
+    Atom NetWmStateBelow = atom("_NET_WM_STATE_BELOW");
+    Atom NetWmStateFullscreen = atom("_NET_WM_STATE_FULLSCREEN");
+    Atom NetWmStateHidden = atom("_NET_WM_STATE_HIDDEN");
+    Atom NetWmStateMaximizedHoriz = atom("_NET_WM_STATE_MAXIMIZED_HORZ");
+    Atom NetWmStateMaximizedVert = atom("_NET_WM_STATE_MAXIMIZED_VERT");
+    Atom NetWmStateShaded = atom("_NET_WM_STATE_SHADED");
+    Atom NetWmStrut = atom("_NET_WM_STRUT");
+    Atom NetWmStrutPartial = atom("_NET_WM_STRUT_PARTIAL");
+    Atom NetWmTypeNormal = atom("_NET_WM_WINDOW_TYPE_NORMAL");
     Atom NetWmWindowType = atom("_NET_WM_WINDOW_TYPE");
     Atom NetWmWindowTypeDock = atom("_NET_WM_WINDOW_TYPE_DOCK");
     Atom NetWmWindowTypeNormal = atom("_NET_WM_WINDOW_TYPE_NORMAL");
-    Atom AWindow = atom("WINDOW");
-    Atom AAtom = atom("ATOM");
-    Atom Cardinal = atom("CARDINAL");
     Atom VisualId = atom("VISUALID");
-    Atom NetMoveResizeWindow = atom("_NET_MOVERESIZE_WINDOW");
-    Atom NetFrameExtents = atom("_NET_FRAME_EXTENTS");
-    Atom NetClientList = atom("_NET_CLIENT_LIST");
-    Atom NetWmStrut = atom("_NET_WM_STRUT");
-    Atom NetWmStrutPartial = atom("_NET_WM_STRUT_PARTIAL");
-    Atom NetWmStateFullscreen = atom("_NET_WM_STATE_FULLSCREEN");
-    Atom NetWmStateBelow = atom("_NET_WM_STATE_BELOW");
-    Atom NetWmStateAbove = atom("_NET_WM_STATE_ABOVE");
-    Atom NetWmState = atom("_NET_WM_STATE");
-    Atom NetWmDesktop = atom("_NET_WM_DESKTOP");
-    Atom NetWmStateAdd = atom("_NET_WM_STATE_ADD");
-    Atom NetWmStateMaximizedVert = atom("_NET_WM_STATE_MAXIMIZED_VERT");
-    Atom NetWmStateMaximizedHoriz = atom("_NET_WM_STATE_MAXIMIZED_HORZ");
-    Atom NetWmStateShaded = atom("_NET_WM_STATE_SHADED");
-    Atom NetWmTypeNormal = atom("_NET_WM_WINDOW_TYPE_NORMAL");
 
     void detectMonitors(); // Get the geometry of the monitors.
+
+    std::set<Atom> windowState(Window w) const;
 
     Geometry getGeometry(Window w) const;
     Geometry getGeometry(Window w, Window *root) const;
