@@ -23,6 +23,7 @@ struct Size {
     bool operator < (const Size &) const;
     bool canContain(const Size &s) const { return width >= s.width && height >= s.height; }
     unsigned area() const { return width * height; }
+    Size(unsigned width_, unsigned height_) : width(width_), height(height_) {}
 };
 
 std::ostream &operator << (std::ostream &, const Size &);
@@ -32,6 +33,10 @@ struct Geometry {
     int x;
     int y;
     bool operator < (const Geometry &rhs) const;
+    int endx() const { return x + size.width; }
+    int endy() const { return y + size.height; }
+    Geometry(const Size &size, int x, int y) : size(size_), x(x_), y(y_) {}
+    // default copy construction is ok.
 };
 
 std::ostream &operator << (std::ostream &, const Geometry &);
