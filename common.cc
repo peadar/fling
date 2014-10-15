@@ -1,5 +1,4 @@
 #include "wmhack.h"
-#include "json.h"
 
 X11Env::X11Env(Display *display_)
     : display(display_)
@@ -170,10 +169,12 @@ X11Env::active()
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     // XXX: xfce strangely has two items here, second appears to be zero.
     if (rc != 0 || actualFormat != 32 || itemCount < 1) {
-        std::cerr << "can't find active window";
-        exit(1);
+        return 0;
     }
-    return *(Window *)prop;
+    Window w = *(Window *)prop;
+    XFree(prop);
+    return w;
+
 }
 
 void
@@ -219,6 +220,37 @@ X11Env::getClientList() const
         result.push_back(w[i]);
     XFree(prop);
     return result;
+}
+
+Atom
+X11Env::windowType(Window w) const
+{
+    Atom rv = NetWmWindowTypeNormal;
+    Atom actualType;
+    int actualFormat;
+    unsigned long itemCount;
+    unsigned long afterBytes;
+    unsigned char *prop;
+
+    int rc = XGetWindowProperty(display, w, NetWmWindowType,
+            0, std::numeric_limits<long>::max(), False, AnyPropertyType,
+            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+    if (rc == 0) {
+        if (prop != 0) {
+            rv = *(Atom *)prop;
+            XFree(prop);
+        }
+    }
+    return rv;
+}
+
+std::string
+X11Env::atomName(Atom a) const
+{
+    char *p = XGetAtomName(display, a);
+    std::string s = p;
+    XFree(p);
+    return s;
 }
 
 bool

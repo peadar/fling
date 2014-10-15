@@ -12,7 +12,9 @@ Spaces::fit(const Size &required)
     for (const auto &candidate : emptySpace)
         if (candidate.size.canContain(required) && best.size.area() > candidate.size.area())
             best = candidate;
-    throw "cant fit";
+    best.size = required;
+    occlude(best);
+    return best;
 }
 
 void
@@ -23,32 +25,40 @@ Spaces::occlude(const Geometry &take)
     // the existing one.
 
     std::set<Geometry> result;
-    for (const auto &toSplit : emptySpace) {
-        unsigned endx = std::min(take.endx, toClip.endx());
-        unsigned endy = std::min(take.endy(), toClip.endy());
+    for (const auto &clearing : emptySpace) {
+        Geometry clippedRegion;
 
-        Geometry clipped;
-        clipped.x = std::max(take.x, toClip.x)
-        clipped.y = std::max(take.y, toClip.y) 
-        clipped.width = endx - clipped.x;
-        clipped.height = endy - clipped.y;
+        unsigned endx = std::min(take.endx(), clearing.endx());
+        unsigned endy = std::min(take.endy(), clearing.endy());
+        clippedRegion.x = std::max(take.x, clearing.x);
+        clippedRegion.y = std::max(take.y, clearing.y);
+        clippedRegion.size.width = endx - clippedRegion.x;
+        clippedRegion.size.height = endy - clippedRegion.y;
 
-        if (clipped.width == 0 || clipped.height == 0) {
-            result.insert(toClip);
+        if (clippedRegion.size.area() == 0) {
+            result.insert(clearing); // no change - the clippedRegion area is disjoint from the clearing
         } else {
-            top = Geometry(
-
-            if (toSplit.x < take.x) {
-
-                result.insert(toSplit.x, toSplit.y, Size(std::min(toSplit.size.width, take.x - toSplit.x), toSplit.size.height));
+            if (clippedRegion.x > clearing.x) {
+                // there's a region to the left of the clearing that's still visible
+                result.insert(Geometry(Size(clippedRegion.x - clearing.x, clearing.size.height), clearing.x, clearing.y));
             }
-            if (toSplit.x + toSplit.size.width > take.x + take.size.width && take.y + take.size.heig>= toSplit.y && take.y ) // there's space to the right
-                result.insert(take.x + take.size.width, toSplit.y, Size(toSplit.x - take.x - take.size.width, toSplit.size.height));
-            if (toSplit.y < take.y) // there's space at the top of this resource
-                result.insert(toSplit.x, toSplit.y, Size(toSplit.size.width, std::min(toSplit.size.height, take.y - toSplit.y)));
-            if (toSplit.y < toSplit.size.height > take.y + take.size.width) // space at the bottom
-                result.insert(toSplit.x, take.y + take.size.height, Size(toSplit.size.width, toSplit.y - take.y - take.height));
-        }
 
+            if (clippedRegion.endx() < clearing.endx()) {
+                // there's a region to the right of the clearing that's still visible
+                result.insert(Geometry(
+                        Size(clearing.endx() - clippedRegion.endx(), clearing.size.height),
+                        clippedRegion.endx(), clearing.y));
+            }
+            if (clippedRegion.y > clearing.y) {
+                // there's a region to the top of the clearing that's still visible
+                result.insert(Geometry(Size(clearing.size.width, clippedRegion.y - clearing.y), clearing.x, clearing.y));
+            }
+            if (clippedRegion.endy() < clearing.endx()) {
+                // there's a region to the right of the clearing that's still visible
+                result.insert(Geometry(
+                        Size(clearing.size.width, clearing.endy() - clippedRegion.endy()),
+                        clearing.x, clippedRegion.endy()));
+            }
+        }
     }
 }

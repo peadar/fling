@@ -24,6 +24,8 @@ struct Size {
     bool canContain(const Size &s) const { return width >= s.width && height >= s.height; }
     unsigned area() const { return width * height; }
     Size(unsigned width_, unsigned height_) : width(width_), height(height_) {}
+    Size() : width(0), height(0) {}
+    unsigned area() { return width * height; }
 };
 
 std::ostream &operator << (std::ostream &, const Size &);
@@ -35,7 +37,8 @@ struct Geometry {
     bool operator < (const Geometry &rhs) const;
     int endx() const { return x + size.width; }
     int endy() const { return y + size.height; }
-    Geometry(const Size &size, int x, int y) : size(size_), x(x_), y(y_) {}
+    Geometry(const Size &size_, int x_, int y_) : size(size_), x(x_), y(y_) {}
+    Geometry() : x(0), y(0) {}
     // default copy construction is ok.
 };
 
@@ -71,7 +74,11 @@ struct X11Env {
     X11Env(Display *display_);
     Atom atom(const char *name) { return XInternAtom(display, name, False); }
     Atom NetActiveWindow = atom("_NET_ACTIVE_WINDOW");
+    Atom NetWmWindowType = atom("_NET_WM_WINDOW_TYPE");
+    Atom NetWmWindowTypeDock = atom("_NET_WM_WINDOW_TYPE_DOCK");
+    Atom NetWmWindowTypeNormal = atom("_NET_WM_WINDOW_TYPE_NORMAL");
     Atom AWindow = atom("WINDOW");
+    Atom AAtom = atom("ATOM");
     Atom Cardinal = atom("CARDINAL");
     Atom VisualId = atom("VISUALID");
     Atom NetMoveResizeWindow = atom("_NET_MOVERESIZE_WINDOW");
@@ -88,6 +95,7 @@ struct X11Env {
     Atom NetWmStateMaximizedVert = atom("_NET_WM_STATE_MAXIMIZED_VERT");
     Atom NetWmStateMaximizedHoriz = atom("_NET_WM_STATE_MAXIMIZED_HORZ");
     Atom NetWmStateShaded = atom("_NET_WM_STATE_SHADED");
+    Atom NetWmTypeNormal = atom("_NET_WM_WINDOW_TYPE_NORMAL");
 
     void detectMonitors(); // Get the geometry of the monitors.
 
@@ -100,15 +108,18 @@ struct X11Env {
     int monitorForWindow(Window); // find index of monitor on which a window lies.
     typedef std::vector<Window> WindowList;
     WindowList getClientList() const;
+    Atom windowType(Window) const;
+    std::string atomName(Atom) const;
 };
+
 
 
 class Spaces {
 public:
     Geometry fit(const Size &size);
+    Spaces(const Geometry &workspace);
 private:
     void occlude(const Geometry &space);
     std::set<Geometry> emptySpace;
-    Spaces(const Geometry &workspace);
 };
 

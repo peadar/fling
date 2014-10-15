@@ -20,29 +20,35 @@ main()
 
     struct WindowGeo {
         Window w;
-        Geometry g;
+        Geometry existing;
+        Geometry updated;
         Window parent;
-        WindowGeo(Window w_, Geometry g_) : w(w_), g(g_), parent(0) {}
+        int type;
+        WindowGeo(X11Env &x11, Window w_, Geometry g_) : w(w_), existing(g_), parent(0) { }
     };
 
     std::vector<WindowGeo> all;
-
-    std::transform(clients.begin(),
-            clients.end(),
-            std::back_insert_iterator<decltype(all)>(all),
-            [&x11, &clients, &all] (const Window &w) {
-                Geometry g = x11.getGeometry(w); // this is relative to its parent, probably implemented by the WM
-                Window win;
-                XTranslateCoordinates(x11.display, w, x11.root, g.x, g.y, &g.x, &g.y, &win);
-                return WindowGeo(w, g);
-    });
+    for (auto w : clients) {
+        Atom type = x11.windowType(w);
+        if (type == x11.NetWmWindowTypeNormal) {
+            Geometry g = x11.getGeometry(w); // this is relative to its parent, probably implemented by the WM
+            Window win;
+            XTranslateCoordinates(x11.display, w, x11.root, g.x, g.y, &g.x, &g.y, &win);
+            all.push_back(WindowGeo(x11, w, g));
+        }
+    }
 
     std::sort(all.begin(), all.end(), [&all, x11] (const WindowGeo &lhs, const WindowGeo &rhs) {
-        return std::max(lhs.g.size.height, lhs.g.size.width) - std::max(rhs.g.size.height, rhs.g.size.width);
+        return std::max(lhs.existing.size.height, lhs.existing.size.width)
+                        - std::max(rhs.existing.size.height, rhs.existing.size.width);
     });
 
     for (const auto &item : all)
-        std::cout << "{ window:" << item.w << ", geo:" << item.g << "}\n" ;
+        std::cout << "{ window:" << item.w << ", geo:" << item.existing << "}\n" ;
     std::cout << "monitor: " << monitor << "\n";
+
+    Spaces s(monitor);
+    for (const auto &item : all)
+        x11.setGeometry(item.w, s.fit(item.existing.size));
 
 }
