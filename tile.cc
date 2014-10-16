@@ -50,8 +50,8 @@ main()
 
     Spaces s(monitor);
     for (auto &item : all)
-        //x11.setGeometry(item.w, s.fit(item.existing.size));
-        item.updated = s.fit(item.existing.size);
+        x11.setGeometry(item.w, s.fit(item.existing.size));
+        // item.updated = s.fit(item.existing.size);
 
     std::clog << "have " << all.size() << " client windows\n";
     for (const auto &item : all) {

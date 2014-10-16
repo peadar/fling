@@ -9,8 +9,10 @@ Geometry
 Spaces::fit(const Size &required)
 {
     Geometry best;
+    best.x = 2000;
     for (const auto &candidate : emptySpace)
-        if (candidate.size.canContain(required) && best.size.area() > candidate.size.area())
+        if (candidate.size.canContain(required) &&
+                (best.x > candidate.x || best.x == candidate.x && best.y <= candidate.y))
             best = candidate;
     best.size = required;
     occlude(best);
@@ -61,4 +63,5 @@ Spaces::occlude(const Geometry &take)
             }
         }
     }
+    std::swap(result, emptySpace);
 }
