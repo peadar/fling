@@ -22,11 +22,11 @@ usage()
 << "fling [ -p ] [ -s <screen> ] [-b <border>] \\" << std::endl
 << "        <left|right|top|bottom|topleft|bottomleft|topright|bottomright>" << std::endl
 << "    move to specified area of screen." << std::endl
-<< std::endl
-<< "fling [ -p ] [ -s screen ] \\" << std::endl
-<< "       <numx>[/denomx[:spanx]] <numy>[/denomy[:spany]]" << std::endl
-<< "    move left edge of window to (numx,numy) in a grid size " << std::endl
-<< "    (denomx,denomy), spanning a rectangle of size spanx, spany gridpoints." << std::endl
+<< "fling [ -p ] [ -s screen ] <[percent]<u|d|l|r|v|h>+" << std::endl
+<< "    set new area to (top|bottom|left|right|vertical middle|horizontal" << std::endl
+<< "    middle) of current area. Current area starts at full screen, and window" << std::endl
+<< "    is moved to current area at end of string. For example, 'fling 60lu'" << std::endl
+<< "    moves a window to the leftmost 60% of the top half of the screen"
 << std::endl
 << "fling -f [ -p ] [ -s screen ]" << std::endl
 << "    toggle fullscreen status of window " << std::endl
@@ -97,7 +97,9 @@ main(int argc, char *argv[])
     }
     X11Env x11(display);
 
-    while ((c = getopt(argc, argv, "ab:g:ns:fmpuh")) != -1) {
+    if (argc == 1)
+        usage();
+    while ((c = getopt(argc, argv, "ab:g:ns:fmpuh_")) != -1) {
         switch (c) {
             case 'p':
                 doPick = true;
@@ -118,6 +120,9 @@ main(int argc, char *argv[])
                 toggles.push_back(x11.NetWmStateMaximizedHoriz);
                 break;
             case 'h':
+                usage();
+                break;
+            case '_':
                 toggles.push_back(x11.NetWmStateShaded);
                 break;
             case 'a':
