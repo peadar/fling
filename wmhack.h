@@ -83,7 +83,8 @@ struct X11Env {
     void setGeometry(Window win, const Geometry &geom) const;
     Window pick(); // pick a window on the display using the mouse.
     Window active(); // find active window
-    void toggleFlag(Window win, const Atom toggle) const;
+    enum StateUpdateAction { REMOVE = 0, ADD = 1, TOGGLE = 2 };
+    void updateState(Window win, const Atom toggle, StateUpdateAction update) const;
     int monitorForWindow(Window); // find index of monitor on which a window lies.
 };
 

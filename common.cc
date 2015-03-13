@@ -176,7 +176,7 @@ X11Env::active()
 }
 
 void
-X11Env::toggleFlag(Window win, const Atom toggle) const
+X11Env::updateState(Window win, const Atom stateitem, StateUpdateAction action) const
 {
     XEvent e;
     XClientMessageEvent &ec = e.xclient;
@@ -187,9 +187,9 @@ X11Env::toggleFlag(Window win, const Atom toggle) const
     ec.message_type = NetWmState;
     ec.window = win;
     ec.format = 32;
-    ec.data.l[0] = 2; //_NET_WM_STATE_TOGGLE;
-    ec.data.l[1] = toggle;
-    ec.data.l[2] = toggle == NetWmStateMaximizedHoriz ? NetWmStateMaximizedVert : 0 ;
+    ec.data.l[0] = action;
+    ec.data.l[1] = stateitem;
+    ec.data.l[2] = stateitem == NetWmStateMaximizedHoriz ? NetWmStateMaximizedVert : 0 ;
     ec.data.l[3] = 1;
     if (!XSendEvent(display, root, False, SubstructureRedirectMask|SubstructureNotifyMask, &e))
         std::cerr << "can't go fullscreen" << std::endl;

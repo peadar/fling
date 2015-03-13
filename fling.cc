@@ -139,7 +139,7 @@ main(int argc, char *argv[])
 
     // If we're doing state toggles, do them now.
     for (auto atom : toggles)
-        x11.toggleFlag(win, atom);
+        x11.updateState(win, atom, X11Env::TOGGLE);
 
     // If nothing else to do, just exit.
     if (argc == optind)
@@ -273,5 +273,7 @@ main(int argc, char *argv[])
     window.size.height -= frame[2] + frame[3] + border * 2;
     window.x += frame[0] + border;
     window.y += frame[2] + border;
+    x11.updateState(win, x11.NetWmStateShaded, X11Env::REMOVE);
+    x11.updateState(win, x11.NetWmStateMaximizedHoriz, X11Env::REMOVE);
     x11.setGeometry(win, window);
 }
