@@ -27,6 +27,7 @@ struct Geometry {
     int x;
     int y;
 };
+extern std::ostream & operator<<(std::ostream &os, const Geometry &m);
 
 struct Range {
     long start;
@@ -57,7 +58,9 @@ struct X11Env {
 
     X11Env(Display *display_);
     Atom atom(const char *name) { return XInternAtom(display, name, False); }
+    Atom NetCurrentDesktop = atom("_NET_CURRENT_DESKTOP");
     Atom NetActiveWindow = atom("_NET_ACTIVE_WINDOW");
+    Atom NetDesktopNames = atom("_NET_DESKTOP_NAMES");
     Atom AWindow = atom("WINDOW");
     Atom Cardinal = atom("CARDINAL");
     Atom VisualId = atom("VISUALID");

@@ -1,5 +1,15 @@
 #include "wmhack.h"
 
+std::ostream &
+operator<<(std::ostream &os, const Geometry &m)
+{
+    return os << "{ w:" << m.size.width
+                << ", h: " << m.size.height
+                << ", x: " << m.x
+                << ", y: " << m.y
+                << " }";
+}
+
 X11Env::X11Env(Display *display_)
     : display(display_)
     , root(XDefaultRootWindow(display))
