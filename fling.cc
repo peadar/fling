@@ -60,7 +60,7 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
         rc = XGetWindowProperty(x11.display, w[i], x11.NetWmDesktop, 0,
                 std::numeric_limits<long>::max(), False, x11.Cardinal,
                 &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-        if (rc == 0) {
+        if (rc == 0 && itemCount != 0) {
             long clipDesktop = *(long *)prop;
             XFree(prop);
             if (clipDesktop == targetDesktop || clipDesktop == -1 || targetDesktop == -1) {
