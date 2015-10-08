@@ -16,7 +16,7 @@ dlab: $(DLAB_OBJS)
 	$(CXX) -o $@ $^ -lX11 -lXinerama -lXmu
 
 clean:
-	rm -f fling $(FLING_OBJS) $(DLAB_OBJS) $(EXTRA_CLEAN)
+	rm -f dlab fling $(FLING_OBJS) $(DLAB_OBJS) $(EXTRA_CLEAN)
 
 install:
 	cp fling /usr/local/bin
