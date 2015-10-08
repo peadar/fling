@@ -9,15 +9,17 @@
      - specify border width (pixels)
    - *-s*
      - specify the xinerama monitor to move the window to.
+   - *-x*
+     - for window motion commands, start with the window's current geometry, rather than the full monitor
    - window selection:
-      - *\[ -w \<window-id\> \]* 
+      - *-w \<window-id\>* 
         - specify explicit integer window id.
-      - *\[ -p \]* 
+      - *-p* 
         - select with mouse pointer
    - window motion:
      - *left*
      - *right*
-     - top*
+     - *top*
      - *bottom*
      - *topleft*
      - *bottomleft*
