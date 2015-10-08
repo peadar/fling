@@ -22,7 +22,13 @@ Geometry
 X11Env::getGeometry(Window w) const
 {
     Window root;
-    return getGeometry(w, &root);
+    Geometry geom = getGeometry(w, &root);
+    // Locate origin of this window in root.
+    Status s = XTranslateCoordinates(display, w, root, 0, 0, &geom.x, &geom.y, &root);
+    if (!s) {
+       throw "can't translate geometry";
+    }
+    return geom;
 }
 
 Geometry
@@ -44,7 +50,7 @@ X11Env::monitorForWindow(Window win)
     Window winroot;
     Status s;
     Geometry geom = getGeometry(win, &winroot);
-    s = XTranslateCoordinates(display, win, winroot,  geom.x, geom.y, &geom.x, &geom.y, &winroot);
+    s = XTranslateCoordinates(display, win, winroot,  0, 0, &geom.x, &geom.y, &winroot);
     if (!s) {
         std::cerr << "Can't translate root window coordinates" << std::endl;
         return 0;
