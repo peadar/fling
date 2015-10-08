@@ -26,13 +26,13 @@
        - move to specified area of screen.
 
      - *\<\[percent\]u|d|l|r|v|h\>+*
-       - The window is initially sized to the entire monitor, *percent* defaults to 50. each character reduces it in some way:
-         * l: retain only the left *percent* of the space currently occupied
-         * r: retain only the right *percent* of the space currently occupied
-         * u: retain only the top *percent* space currently occupied
-         * d: retain only the bottom *percent* space currently occupied
-         * h: retain *percent* of the existing width, and centre in the existing horizontal space
-         * v: retain *percent* of the existing height, and centre in the existing vertical space
+       - The window is initially sized to the entire monitor, *percent* defaults to 50. each character reduces it in some way
+         - l: retain only the left *percent* of the space currently occupied
+         - r: retain only the right *percent* of the space currently occupied
+         - u: retain only the top *percent* space currently occupied
+         - d: retain only the bottom *percent* space currently occupied
+         - h: retain *percent* of the existing width, and centre in the existing horizontal space
+         - v: retain *percent* of the existing height, and centre in the existing vertical space
        - patterns can repeat, so, for example, *fling 30dl* will place the window in the left half of the lower 30% of the monitor
 
 ## Window manager interactions: 
