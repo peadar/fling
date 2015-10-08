@@ -25,6 +25,8 @@ usage()
 << "    toggle fullscreen status of window " << std::endl
 << "fling -u [ -p | -w <windowid> ] [ -s screen ]" << std::endl
 << "    toggle window to be below all others (can combine with -f)" << std::endl
+<< "fling -o <opacity> [ -p | -w <windowid> ] [ -s screen ]" << std::endl
+<< "    set window opacity (0.0 to 1.0)" << std::endl
 << std::endl
 << " -p allows you to choose the target window for all invocations, otherwise," << std::endl
 << " the window is moved. For use in a terminal emulator, this means fling will" << std::endl
@@ -32,7 +34,7 @@ usage()
 << " -w allows you to specify a window id that you've gotten from elsewhere "
 << "(eg, $WINDOWID in xterm)" << std::endl
 << " -x indicates that changes are relative to the existing window dimensions, " << std::endl
-<< " rather than the entire screen"
+<< " rather than the entire screen" << std::endl
 ;
     exit(1);
 }
@@ -141,6 +143,8 @@ main(int argc, char *argv[])
                 break;
             case 'o':
                opacity = strtod(optarg, 0);
+               if (opacity < 0.0 || opacity > 1.0)
+                  usage();
                break;
             case 'w':
                win = intarg();
