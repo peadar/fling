@@ -1,43 +1,46 @@
 # Fling an X11 window around
 
-Use
+## Usage
 
-    $ fling topleft
+## Move a window on the screen:
 
-and
+- fling *\[-x\]* *\[ window selection\]* *\[ -s <screen> ]\* *\[-b <border>\]*  *\[window-motion\]*
+   - *-b \<num\>*  
+     - specify border width (pixels)
+   - *-s*
+     - specify the xinerama monitor to move the window to.
+   - window selection:
+      - *\[ -w \<window-id\> \]* 
+        - specify explicit integer window id.
+      - *\[ -p \]* 
+        - select with mouse pointer
+   - window motion:
+     - *left*
+     - *right*
+     - top*
+     - *bottom*
+     - *topleft*
+     - *bottomleft*
+     - *topright*
+     - *bottomright*
+       - move to specified area of screen.
 
-    $ fling bottom
+     - *\<\[percent\]u|d|l|r|v|h\>+*
+       - The window is initially sized to the entire monitor, *percent* defaults to 50. each character reduces it in some way:
+         * l: retain only the left *percent* of the space currently occupied
+         * r: retain only the right *percent* of the space currently occupied
+         * u: retain only the top *percent* space currently occupied
+         * d: retain only the bottom *percent* space currently occupied
+         * h: retain *percent* of the existing width, and centre in the existing horizontal space
+         * v: retain *percent* of the existing height, and centre in the existing vertical space
+       - patterns can repeat, so, for example, *fling 30dl* will place the window in the left half of the lower 30% of the monitor
 
-and other obvious combinations of top bottom, left, and right to get
-the active window shifted to one of 8 segments of the screen
-
-If the argument does not match the above, then it is considered a control string. In this mode, the window is initially sized to the entire monitor, and each character reduces it in some way:
-
-* l: retain only the left 50% of the space currently occupied
-* r: retain only the right 50% of the space currently occupied
-* u: retain only the top 50% space currently occupied
-* d: retain only the bottom 50% space currently occupied
-* h: retain 50% of the existing width, and centre in the existing horizontal space
-* v: retain 50% of the existing height, and centre in the existing vertical space
-
-You can precede each of these characters with a percentage of the window to leave, eg: 
-
-    $ fling 30d
-
-makes the window occupy the bottom 30% of the monitor.
-
-xinerama is supported: use "-s \<num\>" to shift from the current xinerama
-monitor.
-
-Any \_NET\_WM\_STRUT\_PARTIAL hints on windows will be obeyed as much as
-possible.
-
-You can use the following flags:
-
-*   "-p"        : use the mouse to pick the window to fling once invoked.
-*   "-f"        : toggle "fullscreen"
-*   "-m"        : toggle "maximised"
-*   "-u"        : toggle "below other windows"
-*   "-a"        : toggle "above other windows"
-*   "-h"        : toggle "sHaded"
-*   "-b \<num\>"  : specify border width (pixels)
+## Window manager interactions: 
+  *   *-p*        : use the mouse to pick the window to fling once invoked.
+  *   *-f*        : toggle "fullscreen"
+  *   *-m*        : toggle "maximised"
+  *   *-u*        : toggle "below other windows"
+  *   *-a*        : toggle "above other windows"
+  *   *-h*        : toggle "sHaded"
+  *   *-x*        : use the window's existing dimensions as the starting geometry
+  *   *-o \<num\>*: set window opacity

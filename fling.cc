@@ -7,35 +7,12 @@ static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage
 static bool nodo = false;
 static int border = 0;
 
+
+extern char README_md[];
 static void
 usage()
 {
-    std::clog
-<< "usage:" << std::endl
-<< "fling [ -x ] [ -p | -w  <windowid> ] [ -s <screen> ] [-b <border>] \\" << std::endl
-<< "        <left|right|top|bottom|topleft|bottomleft|topright|bottomright>" << std::endl
-<< "    move to specified area of screen." << std::endl
-<< "fling [ -w ] [ -p  | -w <windowid> ] [ -s screen ] <[percent]<u|d|l|r|v|h>+" << std::endl
-<< "    set new area to (top|bottom|left|right|vertical middle|horizontal" << std::endl
-<< "    middle) of current area. Current area starts at full screen, and window" << std::endl
-<< "    is moved to current area at end of string. For example, 'fling 60lu'" << std::endl
-<< "    moves a window to the leftmost 60% of the top half of the screen"
-<< std::endl
-<< "fling -f [ -p | -w <windowid> ] [ -s screen ]" << std::endl
-<< "    toggle fullscreen status of window " << std::endl
-<< "fling -u [ -p | -w <windowid> ] [ -s screen ]" << std::endl
-<< "    toggle window to be below all others (can combine with -f)" << std::endl
-<< "fling -o <opacity> [ -p | -w <windowid> ] [ -s screen ]" << std::endl
-<< "    set window opacity (0.0 to 1.0)" << std::endl
-<< std::endl
-<< " -p allows you to choose the target window for all invocations, otherwise," << std::endl
-<< " the window is moved. For use in a terminal emulator, this means fling will" << std::endl
-<< " fling your terminal around" << std::endl
-<< " -w allows you to specify a window id that you've gotten from elsewhere "
-<< "(eg, $WINDOWID in xterm)" << std::endl
-<< " -x indicates that changes are relative to the existing window dimensions, " << std::endl
-<< " rather than the entire screen" << std::endl
-;
+    std::clog << README_md;
     exit(1);
 }
 
