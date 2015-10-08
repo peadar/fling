@@ -6,19 +6,13 @@
 
 - fling *\[-x\]* *\[ window selection\]* *\[ -s <screen> ]\* *\[-b <border>\]*
   *\[window-motion\]*
-   - *-b \<num\>*  
-     - specify border width (pixels)
-   - *-s*
-     - specify the xinerama monitor to move the window to.
-   - *-x*
-     - for window motion commands, start with the window's current geometry,
-       rather than the full monitor
+   - *-b \<num\>* : specify border width (pixels)
+   - *-s* : specify the xinerama monitor to move the window to.
+   - *-x* : for window motion commands, start with the window's current geometry, rather than the full monitor
    - window selection:
-      - *-w \<window-id\>* 
-        - specify explicit integer window id.
-      - *-p* 
-        - select with mouse pointer
-   - window motion:  move to specified area of screen.
+      - *-w \<window-id\>* : specify explicit integer window id.
+      - *-p* : select with mouse pointer
+   - window motion:  move to specified area of screen. One of:
      - *left*
      - *right*
      - *top*
@@ -27,7 +21,7 @@
      - *bottomleft*
      - *topright*
      - *bottomright*
-   - window motion:  control string *\<\[percent\]u|d|l|r|v|h\>+*
+   - window motion: control string: *\<\[percent\]u|d|l|r|v|h\>+*
        - The window is initially sized to the entire monitor, *percent*
          defaults to 50. each character reduces it in some way patterns can
          repeat, so, for example, *fling 30dl* will place the window in the
