@@ -8,11 +8,11 @@ static bool nodo = false;
 static int border = 0;
 
 
-extern char README_md[];
+extern char readme_txt[];
 static void
 usage()
 {
-    std::clog << README_md;
+    std::clog << readme_txt;
     exit(1);
 }
 

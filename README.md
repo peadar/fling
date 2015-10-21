@@ -4,7 +4,7 @@
 
 ## Move a window on the screen:
 
-- fling *\[-x\]* *\[ window selection\]* *\[ -s <screen> ]\* *\[-b <border>\]*
+- fling *\[-x\]* *\[ window selection\]* *\[ -s <screen> \]* *\[-b <border>\]*
   *\[window-motion\]*
    - *-b \<num\>* : specify border width (pixels)
    - *-s* : specify the xinerama monitor to move the window to.
