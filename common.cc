@@ -145,7 +145,7 @@ Window
 X11Env::pick()
 {
     Window w = root;
-    Cursor c = XCreateFontCursor(display, XC_question_arrow);
+    Cursor c = XCreateFontCursor(display, XC_tcross);
 
     if (XGrabPointer(display, root, False, ButtonPressMask|ButtonReleaseMask,
             GrabModeSync, GrabModeAsync, None, c, CurrentTime) != GrabSuccess) {
