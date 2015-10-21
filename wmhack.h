@@ -79,6 +79,7 @@ struct X11Env {
     Atom NetWmStateMaximizedHoriz = atom("_NET_WM_STATE_MAXIMIZED_HORZ");
     Atom NetWmStateShaded = atom("_NET_WM_STATE_SHADED");
     Atom NetWmOpacity = atom("_NET_WM_WINDOW_OPACITY");
+    Atom WorkDir = atom("_PME_WORKDIR");
 
     void detectMonitors(); // Get the geometry of the monitors.
 

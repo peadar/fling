@@ -66,6 +66,14 @@ setOpacity(const X11Env &x11, Window w, double opacity)
     XFlush(x11.display);
 }
 
+static void
+setWorkdir(const X11Env &x11, Window w, const char *value)
+{
+    XChangeProperty(x11.display, w, x11.WorkDir, XA_STRING, 8, PropModeReplace,
+               (const unsigned char *)value, strlen(value));
+    XFlush(x11.display);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -74,6 +82,7 @@ main(int argc, char *argv[])
     double opacity = -1;
     bool windowRelative = false;
     Window win = 0;
+    const char *workdir = 0;
 
     std::list<Atom> toggles;
 
@@ -86,7 +95,7 @@ main(int argc, char *argv[])
 
     if (argc == 1)
         usage();
-    while ((c = getopt(argc, argv, "b:g:o:s:w:afhmnpux_")) != -1) {
+    while ((c = getopt(argc, argv, "b:g:o:s:w:W:afhmnpux_")) != -1) {
         switch (c) {
             case 'p':
                 doPick = true;
@@ -130,6 +139,9 @@ main(int argc, char *argv[])
                windowRelative = true;
                border = 0; // assume the window already has adequate space around it.
                break;
+            case 'W':
+               workdir = optarg;
+               break;
         }
     }
 
@@ -140,8 +152,12 @@ main(int argc, char *argv[])
     // If we're doing state toggles, do them now.
 
     if (opacity >= 0.0) {
-      setOpacity(x11, win, opacity);
-      return 0;
+        setOpacity(x11, win, opacity);
+        return 0;
+    }
+    if (workdir != 0) {
+        setWorkdir(x11, win, workdir);
+        return 0;
     }
 
     for (auto atom : toggles)
