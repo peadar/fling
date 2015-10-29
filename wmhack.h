@@ -16,7 +16,6 @@
 
 struct X11Env;
 
-
 struct Size {
     unsigned width;
     unsigned height;
@@ -34,7 +33,7 @@ struct Range {
     long end;
     bool empty() { return start == end; }
     bool aligned(long origin, long extent)
-        { return !empty() && start <= origin + extent && end >= origin; }
+        { return !empty() && start < origin + extent && end >= origin; }
 };
 
 struct PartialStrut {
@@ -48,7 +47,6 @@ struct PartialStrut {
     Range rbottom;
     void box(const X11Env &x11, Geometry &g);
 };
-
 
 struct X11Env {
     Display *display;
@@ -92,5 +90,3 @@ struct X11Env {
     void updateState(Window win, const Atom toggle, StateUpdateAction update) const;
     int monitorForWindow(Window); // find index of monitor on which a window lies.
 };
-
-
