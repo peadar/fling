@@ -97,26 +97,24 @@ X11Env::setGeometry(Window win, const Geometry &geom) const
 void
 X11Env::detectMonitors()
 {
+    /* Fallback case is a single monitor occupying the entire root window */
+    monitors.resize(1);
+    monitors[0] = rootGeom;
     // If xinerama is present, use it.
     int eventBase, eventError;
-    if (XineramaQueryExtension(display, &eventBase, &eventError) == 0) {
-        monitors.resize(1);
-        monitors[0] = rootGeom;
-    } else {
+    if (XineramaQueryExtension(display, &eventBase, &eventError) != 0) {
         int monitorCount;
         XineramaScreenInfo *xineramaMonitors = XineramaQueryScreens(display, &monitorCount);
-        if (xineramaMonitors == 0) {
-            std::cerr << "have xinerama, but can't get monitor info" << std::endl;
-            exit(1);
+        if (xineramaMonitors != 0) {
+            monitors.resize(monitorCount);
+            for (int i = 0; i < monitorCount; ++i) {
+                monitors[i].size.width = xineramaMonitors[i].width;
+                monitors[i].size.height = xineramaMonitors[i].height;
+                monitors[i].x = xineramaMonitors[i].x_org;
+                monitors[i].y = xineramaMonitors[i].y_org;
+            }
+            XFree(xineramaMonitors);
         }
-        monitors.resize(monitorCount);
-        for (int i = 0; i < monitorCount; ++i) {
-            monitors[i].size.width = xineramaMonitors[i].width;
-            monitors[i].size.height = xineramaMonitors[i].height;
-            monitors[i].x = xineramaMonitors[i].x_org;
-            monitors[i].y = xineramaMonitors[i].y_org;
-        }
-        XFree(xineramaMonitors);
     }
 }
 std::ostream &operator <<(std::ostream &os, const Range &r)
