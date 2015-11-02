@@ -190,6 +190,26 @@ main(int argc, char *argv[])
     if (argc == optind)
         return 0;
 
+    int rc;
+    auto keyWin = XCreateSimpleWindow(x11, x11.root,
+         0, 0, 1, 1, 0, 0, 0);
+    if (keyWin == 0)
+       abort();
+
+    rc = XMapWindow(x11, keyWin);
+    std::clog << "map: " << rc << std::endl;
+    rc = XFlush(x11);
+    std::clog << "flush: " << rc << std::endl;
+    rc = XSelectInput(x11, keyWin, ExposureMask | KeyPressMask);
+    std::clog << "select: " << rc << std::endl;
+    for (;;) {
+       XEvent e;
+       XNextEvent(x11, &e);
+       std::clog << "Event of type " << e.type << "\n";
+       //rc = XGrabKeyboard(x11, keyWin, false, GrabModeAsync, GrabModeAsync, CurrentTime);
+       //std::clog << "Grab: " << rc << std::endl;
+    }
+
     /*
      * get the extent of the frame around the window: we assume the new frame
      * will have the same extents when we resize it, and use that to adjust the
