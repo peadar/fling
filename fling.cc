@@ -290,7 +290,28 @@ main(int argc, char *argv[])
     window.size.height -= frame[2] + frame[3] + border * 2;
     window.x += frame[0] + border;
     window.y += frame[2] + border;
+    Geometry oldwindow = x11.getGeometry(win);
     x11.updateState(win, x11.NetWmStateShaded, X11Env::REMOVE);
     x11.updateState(win, x11.NetWmStateMaximizedHoriz, X11Env::REMOVE);
-    x11.setGeometry(win, window);
+    x11.updateState(win, x11.NetWmStateFullscreen, X11Env::REMOVE);
+
+    int duration = 200000;
+    int sleeptime = 1000000 / 60;
+
+    int iters = duration / sleeptime;
+#define update(f) next.f = (oldwindow.f * (iters - i) + window.f * i) / iters
+    for (auto i = 1;; ++i) {
+          Geometry next;
+          update(size.width);
+          update(size.height);
+          update(x);
+          update(y);
+          x11.setGeometry(win, next);
+          if (verbose) {
+             std::cout << "set geometry on " << win << " to " << next;
+          }
+          if (i == iters)
+             break;
+          usleep(sleeptime);
+    }
 }
