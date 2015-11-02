@@ -35,6 +35,7 @@ struct Range {
     bool aligned(long origin, long extent)
         { return !empty() && start < origin + extent && end >= origin; }
 };
+extern std::ostream & operator<<(std::ostream &os, const Range &m);
 
 struct PartialStrut {
     long left;
@@ -47,6 +48,7 @@ struct PartialStrut {
     Range rbottom;
     void box(const X11Env &x11, Geometry &g);
 };
+extern std::ostream & operator<<(std::ostream &os, const PartialStrut &m);
 
 struct X11Env {
     Display *display;

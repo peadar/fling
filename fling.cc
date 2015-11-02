@@ -52,7 +52,14 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
                         strut->box(x11, *g);
                     }
                     XFree(prop);
-                }
+                } else {
+                    rc = XGetWindowProperty(x11.display, w[i], x11.NetWmStrut,
+                        0, std::numeric_limits<long>::max(), False, x11.Cardinal,
+                        &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+                    if (rc == 0) {
+                        std::clog << "TODO: deal with legacy strut\n";
+                    }
+                 }
             }
         }
     }
@@ -78,11 +85,13 @@ int
 main(int argc, char *argv[])
 {
     int screen = -1, c;
+    int verbose = 0;
     bool doPick = false;
     double opacity = -1;
     bool windowRelative = false;
     Window win = 0;
     const char *workdir = 0;
+    bool doGeom = false;
 
     std::list<Atom> toggles;
 
@@ -95,7 +104,7 @@ main(int argc, char *argv[])
 
     if (argc == 1)
         usage();
-    while ((c = getopt(argc, argv, "b:g:o:s:w:W:afhmnpux_")) != -1) {
+    while ((c = getopt(argc, argv, "b:o:s:w:W:afghmnpuvx_")) != -1) {
         switch (c) {
             case 'p':
                 doPick = true;
@@ -124,6 +133,9 @@ main(int argc, char *argv[])
             case 'a':
                 toggles.push_back(x11.NetWmStateAbove);
                 break;
+            case 'g':
+                doGeom = true;
+                break;
             case 'u':
                 toggles.push_back(x11.NetWmStateBelow);
                 break;
@@ -142,6 +154,12 @@ main(int argc, char *argv[])
             case 'W':
                workdir = optarg;
                break;
+            case 'v':
+               verbose++;
+               break;
+            default:
+               usage();
+               break;
         }
     }
 
@@ -158,6 +176,11 @@ main(int argc, char *argv[])
     if (workdir != 0) {
         setWorkdir(x11, win, workdir);
         return 0;
+    }
+
+    if (doGeom) {
+       std::cout << "geometry: " << x11.getGeometry(win) << "\n";
+       exit(0);
     }
 
     for (auto atom : toggles)

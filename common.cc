@@ -119,6 +119,31 @@ X11Env::detectMonitors()
         XFree(xineramaMonitors);
     }
 }
+std::ostream &operator <<(std::ostream &os, const Range &r)
+{
+   os
+      << "{ start: " << r.start
+      << ", end: " << r.end
+      << " }";
+   return os;
+}
+
+
+std::ostream &operator <<(std::ostream &os, const PartialStrut &ps)
+{
+   os
+      << "{ left: " << ps.left
+      << ", right: " << ps.right
+      << ", top: " << ps.top
+      << ", bottom: " << ps.bottom
+      << "{ rleft: " << ps.rleft
+      << ", rright: " << ps.rright
+      << ", rtop: " << ps.rtop
+      << ", rbottom: " << ps.rbottom
+      << " }";
+   return os;
+}
+
 
 void
 PartialStrut::box(const X11Env &x11, Geometry &g)
