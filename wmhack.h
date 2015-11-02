@@ -91,4 +91,5 @@ struct X11Env {
     enum StateUpdateAction { REMOVE = 0, ADD = 1, TOGGLE = 2 };
     void updateState(Window win, const Atom toggle, StateUpdateAction update) const;
     int monitorForWindow(Window); // find index of monitor on which a window lies.
+    operator Display *() const { return display; }
 };

@@ -25,7 +25,7 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
     unsigned long afterBytes;
     unsigned char *prop;
     // get a list of all clients, so we can adjust monitor sizes for extents.
-    int rc = XGetWindowProperty(x11.display, XDefaultRootWindow(x11.display), x11.NetClientList,
+    int rc = XGetWindowProperty(x11, x11.root, x11.NetClientList,
             0, std::numeric_limits<long>::max(), False, x11.AWindow,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount <= 0 ) {
@@ -36,14 +36,14 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
     Window *w = (Window *)prop;
     for (size_t i = itemCount; i-- > 0;) {
         // if the window is on the same desktop...
-        rc = XGetWindowProperty(x11.display, w[i], x11.NetWmDesktop, 0,
+        rc = XGetWindowProperty(x11, w[i], x11.NetWmDesktop, 0,
                 std::numeric_limits<long>::max(), False, x11.Cardinal,
                 &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
         if (rc == 0 && itemCount != 0) {
             long clipDesktop = *(long *)prop;
             XFree(prop);
             if (clipDesktop == targetDesktop || clipDesktop == -1 || targetDesktop == -1) {
-                rc = XGetWindowProperty(x11.display, w[i], x11.NetWmStrutPartial,
+                rc = XGetWindowProperty(x11, w[i], x11.NetWmStrutPartial,
                     0, std::numeric_limits<long>::max(), False, x11.Cardinal,
                     &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
                 if (rc == 0) {
@@ -53,7 +53,7 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
                     }
                     XFree(prop);
                 } else {
-                    rc = XGetWindowProperty(x11.display, w[i], x11.NetWmStrut,
+                    rc = XGetWindowProperty(x11, w[i], x11.NetWmStrut,
                         0, std::numeric_limits<long>::max(), False, x11.Cardinal,
                         &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
                     if (rc == 0) {
@@ -69,16 +69,16 @@ static void
 setOpacity(const X11Env &x11, Window w, double opacity)
 {
     unsigned long opacityLong = opacity * std::numeric_limits<uint32_t>::max();
-    XChangeProperty(x11.display, w, x11.NetWmOpacity, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&opacityLong, 1);
-    XFlush(x11.display);
+    XChangeProperty(x11, w, x11.NetWmOpacity, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&opacityLong, 1);
+    XFlush(x11);
 }
 
 static void
 setWorkdir(const X11Env &x11, Window w, const char *value)
 {
-    XChangeProperty(x11.display, w, x11.WorkDir, XA_STRING, 8, PropModeReplace,
+    XChangeProperty(x11, w, x11.WorkDir, XA_STRING, 8, PropModeReplace,
                (const unsigned char *)value, strlen(value));
-    XFlush(x11.display);
+    XFlush(x11);
 }
 
 int
@@ -202,7 +202,7 @@ main(int argc, char *argv[])
     const long *frame;
     unsigned char *prop;
     long desktop;
-    int rc = XGetWindowProperty(x11.display, win, x11.NetFrameExtents,
+    rc = XGetWindowProperty(x11, win, x11.NetFrameExtents,
             0, std::numeric_limits<long>::max(), False, x11.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount != 4) {
@@ -217,7 +217,7 @@ main(int argc, char *argv[])
      * Find desktop of the window in question - we ignore windows on other
      * desktops for struts avoidance, etc.
      */
-    rc = XGetWindowProperty(x11.display, win, x11.NetWmDesktop, 0,
+    rc = XGetWindowProperty(x11, win, x11.NetWmDesktop, 0,
             std::numeric_limits<long>::max(), False, x11.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     desktop = rc == 0 ? *(long *)prop : 0xffffffff;
