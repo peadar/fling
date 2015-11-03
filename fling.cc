@@ -202,6 +202,8 @@ main(int argc, char *argv[])
     const long *frame;
     unsigned char *prop;
     long desktop;
+    int rc;
+
     rc = XGetWindowProperty(x11, win, x11.NetFrameExtents,
             0, std::numeric_limits<long>::max(), False, x11.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
