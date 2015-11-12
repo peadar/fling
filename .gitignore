@@ -1,1 +1,6 @@
 tags
+*.o
+readme.c
+readme.filtered
+readme.o
+readme.txt

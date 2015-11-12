@@ -35,11 +35,8 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
 
     Window *w = (Window *)prop;
     for (size_t i = itemCount; i-- > 0;) {
-        // if the window is on the same desktop...
-        rc = XGetWindowProperty(x11, w[i], x11.NetWmDesktop, 0,
-                std::numeric_limits<long>::max(), False, x11.Cardinal,
-                &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-        if (rc == 0 && itemCount != 0) {
+        auto clipDesktop = x11.desktopForWindow(w[i]);
+        if (clipDesktop == -1 || targetDesktop == -1 || clipDesktop == targetDesktop) {
             long clipDesktop = *(long *)prop;
             XFree(prop);
             if (clipDesktop == targetDesktop || clipDesktop == -1 || targetDesktop == -1) {
@@ -219,10 +216,7 @@ main(int argc, char *argv[])
      * Find desktop of the window in question - we ignore windows on other
      * desktops for struts avoidance, etc.
      */
-    rc = XGetWindowProperty(x11, win, x11.NetWmDesktop, 0,
-            std::numeric_limits<long>::max(), False, x11.Cardinal,
-            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-    desktop = rc == 0 ? *(long *)prop : 0xffffffff;
+    desktop = x11.desktopForWindow(win);
 
     static std::map<std::string, const char *> aliases = {
         { "top",        "u" },

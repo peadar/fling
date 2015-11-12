@@ -194,6 +194,21 @@ X11Env::pick()
     return XmuClientWindow(display, w);
 }
 
+long
+X11Env::desktopForWindow(Window win) const
+{
+    Atom actualType;
+    int actualFormat;
+    unsigned long itemCount;
+    unsigned long afterBytes;
+    unsigned char *prop;
+    
+    auto rc = XGetWindowProperty(display, win, NetWmDesktop, 0,
+            std::numeric_limits<long>::max(), False, Cardinal,
+            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+    return rc == 0 && itemCount == 1 ? *(long *)prop : 0xffffffff;
+}
+
 Window
 X11Env::active()
 {

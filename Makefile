@@ -4,7 +4,7 @@ all:fling dlab
 
 FLING_OBJS += fling.o common.o readme.o
 DLAB_OBJS += dlab.o common.o
-EXTRA_CLEAN += readme.c readme.txt
+EXTRA_CLEAN += readme.c readme.txt readme.filtered
 
 readme.txt: README.md
 	cat $^ | sed 's/\*//g' | sed 's/\\//g' > $@
