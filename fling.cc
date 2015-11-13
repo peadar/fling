@@ -81,12 +81,99 @@ setWorkdir(const X11Env &x11, Window w, const char *value)
     XFlush(x11);
 }
 
+void
+resizeWindow(X11Env &x11, long desktop, Geometry &geom, Window win, const long *frame, const char *location)
+{
+    // start with monitor-sized window at monitor's origin.
+    char curChar;
+    for (const char *path = location; (curChar = *path) != 0; ++path) {
+        int scale;
+        if (isdigit(curChar)) {
+            char *newpath;
+            scale = strtol(path, &newpath, 10);
+            path = newpath;
+            curChar = *path;
+            if (scale >= 100 || scale <= 0)
+                usage();
+        } else {
+            scale = 50;
+        }
+        switch (curChar) {
+            case '.':
+                break;
+            case 'r':
+                // move to right
+                geom.x += geom.size.width * (100 - scale) / 100;
+                // and then...
+            case 'l':
+                // cut out right hand side.
+                geom.size.width = geom.size.width * scale / 100;
+                break;
+            case 'd':
+                geom.y += geom.size.height * (100 - scale) / 100;
+                // and then...
+            case 'u':
+                geom.size.height = geom.size.height * scale / 100;
+                break;
+            case 'h': {
+                // reduce horizontal size and centre
+                int newsize = geom.size.width * scale / 100;
+                geom.x += (geom.size.width - newsize) / 2;
+                geom.size.width = newsize;
+                break;
+            }
+            case 'v': {
+                // reduce vertical size and centre
+                int newsize = geom.size.height * scale / 100;
+                geom.y += (geom.size.height - newsize) / 2;
+                geom.size.height = newsize;
+                break;
+            }
+            default:
+                usage();
+        }
+    }
+
+    // make sure the window doesn't cover any struts.
+    adjustForStruts(x11, &geom, desktop);
+
+    // Now have the geometry for the frame. Adjust to client window size,
+    // assuming frame will remain the same.
+    geom.size.width -= frame[0] + frame[1] + border * 2;
+    geom.size.height -= frame[2] + frame[3] + border * 2;
+    geom.x += frame[0] + border;
+    geom.y += frame[2] + border;
+    Geometry oldgeom = x11.getGeometry(win);
+    x11.updateState(win, x11.NetWmStateShaded, X11Env::REMOVE);
+    x11.updateState(win, x11.NetWmStateMaximizedHoriz, X11Env::REMOVE);
+    x11.updateState(win, x11.NetWmStateFullscreen, X11Env::REMOVE);
+
+    int duration = 200000;
+    int sleeptime = 1000000 / 60;
+
+    int iters = duration / sleeptime;
+#define update(f) next.f = (oldgeom.f * (iters - i) + geom.f * i) / iters
+    for (auto i = 1;; ++i) {
+          Geometry next;
+          update(size.width);
+          update(size.height);
+          update(x);
+          update(y);
+          x11.setGeometry(win, next);
+          if (i == iters)
+             break;
+          usleep(sleeptime);
+    }
+#undef update
+}
+
 int
 main(int argc, char *argv[])
 {
     int screen = -1, c;
     int verbose = 0;
     bool doPick = false;
+    bool interactive = false;
     double opacity = -1;
     bool windowRelative = false;
     Window win = 0;
@@ -104,7 +191,7 @@ main(int argc, char *argv[])
 
     if (argc == 1)
         usage();
-    while ((c = getopt(argc, argv, "b:o:s:w:W:afghmnpuvx_")) != -1) {
+    while ((c = getopt(argc, argv, "b:o:s:w:W:afghimnpuvx_")) != -1) {
         switch (c) {
             case 'p':
                 doPick = true;
@@ -157,6 +244,9 @@ main(int argc, char *argv[])
             case 'v':
                verbose++;
                break;
+            case 'i':
+               interactive = true;
+               break;
             default:
                usage();
                break;
@@ -186,30 +276,51 @@ main(int argc, char *argv[])
     for (auto atom : toggles)
         x11.updateState(win, atom, X11Env::TOGGLE);
 
+    if (interactive) {
+
+       int rc;
+       auto keyWin = XCreateSimpleWindow(x11, x11.root,
+            0, 0, 1, 1, 0, 0, 0);
+       if (keyWin == 0)
+          abort();
+
+       rc = XMapWindow(x11, keyWin);
+       std::clog << "map: " << rc << std::endl;
+       rc = XFlush(x11);
+       std::clog << "flush: " << rc << std::endl;
+       rc = XSelectInput(x11, keyWin, ExposureMask | KeyPressMask);
+       std::clog << "select: " << rc << std::endl;
+
+       int symsPerKey, minCodes, maxCodes;
+       auto codes = XDisplayKeycodes(x11, &minCodes, &maxCodes);
+       if (!codes)
+          abort();
+       auto keySyms = XGetKeyboardMapping(x11, minCodes, maxCodes - minCodes, &symsPerKey);
+
+       for (;;) {
+          XEvent e;
+          XNextEvent(x11, &e);
+          std::clog << "Event of type " << e.type << "\n";
+          switch (e.type) {
+             case Expose:
+                break;
+             case KeyPress:
+                 std::clog << "keypress " << e.xkey.keycode << "\n";
+                 auto i = keySyms[(e.xkey.keycode - minCodes) * symsPerKey];
+                 auto e = i + symsPerKey;
+                 for (; i < e; ++i) {
+                    std::clog << "\tsym: " << keySyms[i] << "\n";
+                 }
+                 exit(0);
+                 break;
+          }
+       }
+    }
+
+
     // If nothing else to do, just exit.
     if (argc == optind)
         return 0;
-
-    int rc;
-    auto keyWin = XCreateSimpleWindow(x11, x11.root,
-         0, 0, 1, 1, 0, 0, 0);
-    if (keyWin == 0)
-       abort();
-
-    rc = XMapWindow(x11, keyWin);
-    std::clog << "map: " << rc << std::endl;
-    rc = XFlush(x11);
-    std::clog << "flush: " << rc << std::endl;
-    rc = XSelectInput(x11, keyWin, ExposureMask | KeyPressMask);
-    std::clog << "select: " << rc << std::endl;
-    for (;;) {
-       XEvent e;
-       XNextEvent(x11, &e);
-       std::clog << "Event of type " << e.type << "\n";
-       //rc = XGrabKeyboard(x11, keyWin, false, GrabModeAsync, GrabModeAsync, CurrentTime);
-       //std::clog << "Grab: " << rc << std::endl;
-    }
-
     /*
      * get the extent of the frame around the window: we assume the new frame
      * will have the same extents when we resize it, and use that to adjust the
@@ -222,7 +333,7 @@ main(int argc, char *argv[])
     const long *frame;
     unsigned char *prop;
     long desktop;
-    rc = XGetWindowProperty(x11, win, x11.NetFrameExtents,
+    auto rc = XGetWindowProperty(x11, win, x11.NetFrameExtents,
             0, std::numeric_limits<long>::max(), False, x11.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     if (rc != 0 || actualFormat != 32 || itemCount != 4) {
@@ -268,93 +379,11 @@ main(int argc, char *argv[])
        monitorGeometry = &x11.monitors[screen];
        window = *monitorGeometry;
     }
-    
+
     const char *location = argv[optind];
     auto alias = aliases.find(location);
     if (alias != aliases.end())
         location = alias->second;
 
-    // start with monitor-sized window at monitor's origin.
-    char curChar;
-    for (const char *path = location; (curChar = *path) != 0; ++path) {
-        int scale;
-        if (isdigit(curChar)) {
-            char *newpath;
-            scale = strtol(path, &newpath, 10);
-            path = newpath;
-            curChar = *path;
-            if (scale >= 100 || scale <= 0)
-                usage();
-        } else {
-            scale = 50;
-        }
-        switch (curChar) {
-            case '.':
-                break;
-            case 'r':
-                // move to right
-                window.x += window.size.width * (100 - scale) / 100;
-                // and then...
-            case 'l':
-                // cut out right hand side.
-                window.size.width = window.size.width * scale / 100;
-                break;
-            case 'd':
-                window.y += window.size.height * (100 - scale) / 100;
-                // and then...
-            case 'u':
-                window.size.height = window.size.height * scale / 100;
-                break;
-            case 'h': {
-                // reduce horizontal size and centre
-                int newsize = window.size.width * scale / 100;
-                window.x += (window.size.width - newsize) / 2;
-                window.size.width = newsize;
-                break;
-            }
-            case 'v': {
-                // reduce vertical size and centre
-                int newsize = window.size.height * scale / 100;
-                window.y += (window.size.height - newsize) / 2;
-                window.size.height = newsize;
-                break;
-            }
-            default:
-                usage();
-        }
-    }
-
-    // make sure the window doesn't cover any struts.
-    adjustForStruts(x11, &window, desktop);
-
-    // Now have the geometry for the frame. Adjust to client window size,
-    // assuming frame will remain the same.
-    window.size.width -= frame[0] + frame[1] + border * 2;
-    window.size.height -= frame[2] + frame[3] + border * 2;
-    window.x += frame[0] + border;
-    window.y += frame[2] + border;
-    Geometry oldwindow = x11.getGeometry(win);
-    x11.updateState(win, x11.NetWmStateShaded, X11Env::REMOVE);
-    x11.updateState(win, x11.NetWmStateMaximizedHoriz, X11Env::REMOVE);
-    x11.updateState(win, x11.NetWmStateFullscreen, X11Env::REMOVE);
-
-    int duration = 200000;
-    int sleeptime = 1000000 / 60;
-
-    int iters = duration / sleeptime;
-#define update(f) next.f = (oldwindow.f * (iters - i) + window.f * i) / iters
-    for (auto i = 1;; ++i) {
-          Geometry next;
-          update(size.width);
-          update(size.height);
-          update(x);
-          update(y);
-          x11.setGeometry(win, next);
-          if (verbose) {
-             std::cout << "set geometry on " << win << " to " << next;
-          }
-          if (i == iters)
-             break;
-          usleep(sleeptime);
-    }
+    resizeWindow(x11, desktop, window, win, frame, location);
 }
