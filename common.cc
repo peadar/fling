@@ -202,11 +202,17 @@ X11Env::desktopForWindow(Window win) const
     unsigned long itemCount;
     unsigned long afterBytes;
     unsigned char *prop;
+    long rv = -1;
     
     auto rc = XGetWindowProperty(display, win, NetWmDesktop, 0,
             std::numeric_limits<long>::max(), False, Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-    return rc == 0 && itemCount == 1 ? *(long *)prop : 0xffffffff;
+    if  (rc == 0) {
+        if (itemCount == 1)
+            rv = *(long *)prop;
+        XFree(prop);
+    }
+    return rv;
 }
 
 Window
@@ -222,11 +228,13 @@ X11Env::active()
             0, std::numeric_limits<long>::max(), False, AWindow,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     // XXX: xfce strangely has two items here, second appears to be zero.
-    if (rc != 0 || actualFormat != 32 || itemCount < 1) {
-        std::cerr << "can't find active window";
-        exit(1);
+    Window rv = 0;
+    if (rc == 0) {
+        if (actualFormat == 32 && itemCount >= 1)
+            rv = *(Window *)prop;
+        XFree(prop);
     }
-    return *(Window *)prop;
+    return rv;
 }
 
 void

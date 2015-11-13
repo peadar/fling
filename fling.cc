@@ -7,7 +7,6 @@ static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage
 static bool nodo = false;
 static int border = 0;
 
-
 extern char readme_txt[];
 static void
 usage()
@@ -23,19 +22,20 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
     int actualFormat;
     unsigned long itemCount;
     unsigned long afterBytes;
-    unsigned char *prop;
+    unsigned char *winlist;
     // get a list of all clients, so we can adjust monitor sizes for extents.
     int rc = XGetWindowProperty(x11, x11.root, x11.NetClientList,
             0, std::numeric_limits<long>::max(), False, x11.AWindow,
-            &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+            &actualType, &actualFormat, &itemCount, &afterBytes, &winlist);
     if (rc != 0 || actualFormat != 32 || itemCount <= 0 ) {
         std::cerr << "can't list clients to do strut processing" << std::endl;
         return;
     }
 
-    Window *w = (Window *)prop;
+    Window *w = (Window *)winlist;
     for (size_t i = itemCount; i-- > 0;) {
         auto clipDesktop = x11.desktopForWindow(w[i]);
+        unsigned char *prop;
         if (clipDesktop == targetDesktop || clipDesktop == -1 || targetDesktop == -1) {
             rc = XGetWindowProperty(x11, w[i], x11.NetWmStrutPartial,
                 0, std::numeric_limits<long>::max(), False, x11.Cardinal,
@@ -47,15 +47,18 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
                 }
                 XFree(prop);
             } else {
+                unsigned char *prop;
                 rc = XGetWindowProperty(x11, w[i], x11.NetWmStrut,
                     0, std::numeric_limits<long>::max(), False, x11.Cardinal,
                     &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
                 if (rc == 0) {
                     std::clog << "TODO: deal with legacy strut\n";
+                    XFree(prop);
                 }
-             }
+            }
         }
     }
+    XFree(winlist);
 }
 
 static void
@@ -159,6 +162,10 @@ main(int argc, char *argv[])
     // Which window are we modifying?
     if (win == 0)
        win = doPick ? x11.pick() : x11.active();
+    if (win == 0) {
+        std::cerr << "no window selected\n";
+        return 0;
+    }
 
     // If we're doing state toggles, do them now.
 
@@ -192,20 +199,40 @@ main(int argc, char *argv[])
     int actualFormat;
     unsigned long itemCount;
     unsigned long afterBytes;
-    const long *frame;
     unsigned char *prop;
     long desktop;
     int rc;
 
+    if (screen == -1)
+        screen = x11.monitorForWindow(win);
+
+    const long *frame;
     rc = XGetWindowProperty(x11, win, x11.NetFrameExtents,
             0, std::numeric_limits<long>::max(), False, x11.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
+    bool haveFrame = rc == 0;
     if (rc != 0 || actualFormat != 32 || itemCount != 4) {
         std::cerr << "can't find frame sizes" << std::endl;
         static long defaultFrame[] = { 0, 0, 0, 0 };
         frame = defaultFrame;
     } else {
         frame = (long *)prop;
+    }
+
+    const Geometry *monitorGeometry;
+    Geometry window;
+    if (windowRelative) {
+       monitorGeometry = 0;
+       window = x11.getGeometry(win);
+       window.size.width += frame[0] + frame[1];
+       window.size.height += frame[2] + frame[3];
+       window.x -= frame[0];
+       window.y -= frame[2];
+       if (rc == 0)
+           XFree(prop);
+    } else {
+       monitorGeometry = &x11.monitors[screen];
+       window = *monitorGeometry;
     }
 
     /*
@@ -225,22 +252,6 @@ main(int argc, char *argv[])
         { "bottomright", "dr" },
     };
 
-    if (screen == -1)
-        screen = x11.monitorForWindow(win);
-    const Geometry *monitorGeometry;
-    Geometry window;
-    if (windowRelative) {
-       monitorGeometry = 0;
-       window = x11.getGeometry(win);
-       window.size.width += frame[0] + frame[1];
-       window.size.height += frame[2] + frame[3];
-       window.x -= frame[0];
-       window.y -= frame[2];
-    } else {
-       monitorGeometry = &x11.monitors[screen];
-       window = *monitorGeometry;
-    }
-    
     const char *location = argv[optind];
     auto alias = aliases.find(location);
     if (alias != aliases.end())
@@ -299,12 +310,14 @@ main(int argc, char *argv[])
     // make sure the window doesn't cover any struts.
     adjustForStruts(x11, &window, desktop);
 
-    // Now have the geometry for the frame. Adjust to client window size,
-    // assuming frame will remain the same.
+    // Adjust for the WM's frame around the window,
+    // assuming frame will remain the same after the move.
     window.size.width -= frame[0] + frame[1] + border * 2;
     window.size.height -= frame[2] + frame[3] + border * 2;
     window.x += frame[0] + border;
     window.y += frame[2] + border;
+    if (haveFrame)
+        XFree((unsigned char *)frame);
     Geometry oldwindow = x11.getGeometry(win);
     x11.updateState(win, x11.NetWmStateShaded, X11Env::REMOVE);
     x11.updateState(win, x11.NetWmStateMaximizedHoriz, X11Env::REMOVE);
@@ -329,4 +342,5 @@ main(int argc, char *argv[])
              break;
           usleep(sleeptime);
     }
+    XCloseDisplay(display);
 }
