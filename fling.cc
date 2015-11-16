@@ -1,5 +1,6 @@
 #include "wmhack.h"
 #include <X11/Xatom.h>
+#include <X11/keysymdef.h>
 #include <string>
 #include <map>
 
@@ -84,8 +85,15 @@ setWorkdir(const X11Env &x11, Window w, const char *value)
 void
 resizeWindow(X11Env &x11, long desktop, Geometry &geom, Window win, const long *frame, const char *location)
 {
-    // start with monitor-sized window at monitor's origin.
     char curChar;
+
+
+    // Increase geometry by the size of the frame to include it in ratios
+    geom.size.width += frame[0] + frame[1];
+    geom.size.height += frame[2] + frame[3];
+    geom.x -= frame[0];
+    geom.y -= frame[2];
+
     for (const char *path = location; (curChar = *path) != 0; ++path) {
         int scale;
         if (isdigit(curChar)) {
@@ -137,20 +145,16 @@ resizeWindow(X11Env &x11, long desktop, Geometry &geom, Window win, const long *
     // make sure the window doesn't cover any struts.
     adjustForStruts(x11, &geom, desktop);
 
-    // Now have the geometry for the frame. Adjust to client window size,
-    // assuming frame will remain the same.
+    // Readjust to remove the size of the frame.
     geom.size.width -= frame[0] + frame[1] + border * 2;
     geom.size.height -= frame[2] + frame[3] + border * 2;
     geom.x += frame[0] + border;
     geom.y += frame[2] + border;
-    Geometry oldgeom = x11.getGeometry(win);
-    x11.updateState(win, x11.NetWmStateShaded, X11Env::REMOVE);
-    x11.updateState(win, x11.NetWmStateMaximizedHoriz, X11Env::REMOVE);
-    x11.updateState(win, x11.NetWmStateFullscreen, X11Env::REMOVE);
 
+
+    Geometry oldgeom = x11.getGeometry(win);
     int duration = 200000;
     int sleeptime = 1000000 / 60;
-
     int iters = duration / sleeptime;
 #define update(f) next.f = (oldgeom.f * (iters - i) + geom.f * i) / iters
     for (auto i = 1;; ++i) {
@@ -276,50 +280,9 @@ main(int argc, char *argv[])
     for (auto atom : toggles)
         x11.updateState(win, atom, X11Env::TOGGLE);
 
-    if (interactive) {
-
-       int rc;
-       auto keyWin = XCreateSimpleWindow(x11, x11.root,
-            0, 0, 1, 1, 0, 0, 0);
-       if (keyWin == 0)
-          abort();
-
-       rc = XMapWindow(x11, keyWin);
-       std::clog << "map: " << rc << std::endl;
-       rc = XFlush(x11);
-       std::clog << "flush: " << rc << std::endl;
-       rc = XSelectInput(x11, keyWin, ExposureMask | KeyPressMask);
-       std::clog << "select: " << rc << std::endl;
-
-       int symsPerKey, minCodes, maxCodes;
-       auto codes = XDisplayKeycodes(x11, &minCodes, &maxCodes);
-       if (!codes)
-          abort();
-       auto keySyms = XGetKeyboardMapping(x11, minCodes, maxCodes - minCodes, &symsPerKey);
-
-       for (;;) {
-          XEvent e;
-          XNextEvent(x11, &e);
-          std::clog << "Event of type " << e.type << "\n";
-          switch (e.type) {
-             case Expose:
-                break;
-             case KeyPress:
-                 std::clog << "keypress " << e.xkey.keycode << "\n";
-                 auto i = keySyms[(e.xkey.keycode - minCodes) * symsPerKey];
-                 auto e = i + symsPerKey;
-                 for (; i < e; ++i) {
-                    std::clog << "\tsym: " << keySyms[i] << "\n";
-                 }
-                 exit(0);
-                 break;
-          }
-       }
-    }
-
 
     // If nothing else to do, just exit.
-    if (argc == optind)
+    if (argc == optind && !interactive)
         return 0;
     /*
      * get the extent of the frame around the window: we assume the new frame
@@ -353,17 +316,6 @@ main(int argc, char *argv[])
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
     desktop = rc == 0 ? *(long *)prop : 0xffffffff;
 
-    static std::map<std::string, const char *> aliases = {
-        { "top",        "u" },
-        { "bottom",     "d" },
-        { "left",       "l" },
-        { "right",      "r" },
-        { "topleft",    "ul" },
-        { "topright",   "ur" },
-        { "bottomleft", "dl" },
-        { "bottomright", "dr" },
-    };
-
     if (screen == -1)
         screen = x11.monitorForWindow(win);
     const Geometry *monitorGeometry;
@@ -371,19 +323,91 @@ main(int argc, char *argv[])
     if (windowRelative) {
        monitorGeometry = 0;
        window = x11.getGeometry(win);
-       window.size.width += frame[0] + frame[1];
-       window.size.height += frame[2] + frame[3];
-       window.x -= frame[0];
-       window.y -= frame[2];
+
     } else {
        monitorGeometry = &x11.monitors[screen];
        window = *monitorGeometry;
+       window.size.width -= frame[0] + frame[1];
+       window.size.height -= frame[2] + frame[3];
+       window.x += frame[0];
+       window.y += frame[2];
     }
 
-    const char *location = argv[optind];
-    auto alias = aliases.find(location);
-    if (alias != aliases.end())
-        location = alias->second;
+    x11.updateState(win, x11.NetWmStateShaded, X11Env::REMOVE);
+    x11.updateState(win, x11.NetWmStateMaximizedHoriz, X11Env::REMOVE);
+    x11.updateState(win, x11.NetWmStateFullscreen, X11Env::REMOVE);
+    if (interactive) {
+        auto keyWin = XCreateSimpleWindow(x11, x11.root, 0, 0, 1, 1, 0, 0, 0);
+        if (keyWin == 0)
+           abort();
 
-    resizeWindow(x11, desktop, window, win, frame, location);
+        XMapWindow(x11, keyWin);
+        XFlush(x11);
+        XSelectInput(x11, keyWin, ExposureMask | KeyPressMask);
+
+        int symsPerKey, minCodes, maxCodes;
+        auto codes = XDisplayKeycodes(x11, &minCodes, &maxCodes);
+        if (!codes)
+           abort();
+        auto keySyms = XGetKeyboardMapping(x11, minCodes, maxCodes - minCodes, &symsPerKey);
+
+        static std::map<int, const char *> keyToOperation = {
+
+           { XK_Up, "u" },
+           { XK_Down, "d" },
+           { XK_Left, "l" },
+           { XK_Right, "r" },
+
+           { XK_KP_8, "u" },
+           { XK_KP_2, "d" },
+           { XK_KP_4, "l" },
+           { XK_KP_6, "r" },
+
+           { XK_KP_7, "ul" },
+           { XK_KP_9, "ur" },
+           { XK_KP_1, "dl" },
+           { XK_KP_3, "dr" },
+
+           { XK_KP_Up, "u" },
+           { XK_KP_Down, "d" },
+           { XK_KP_Left, "l" },
+           { XK_KP_Right, "r" },
+
+           { XK_KP_Home, "ul" },
+           { XK_KP_Page_Up, "ur" },
+           { XK_KP_End, "dl" },
+           { XK_KP_Page_Down, "dr" }
+        };
+ 
+        for (bool done = false; !done;) {
+            XEvent event;
+            XNextEvent(x11, &event);
+            switch (event.type) {
+               case Expose:
+                  break;
+               case KeyPress:
+                   auto i = (event.xkey.keycode - minCodes) * symsPerKey;
+                   auto todo = keyToOperation.find(keySyms[i]);
+                   if (todo == keyToOperation.end())
+                       exit(0);
+                   resizeWindow(x11, desktop, window, win, frame, todo->second);
+            }
+        }
+    } else {
+        static std::map<std::string, const char *> aliases = {
+            { "top",        "u" },
+            { "bottom",     "d" },
+            { "left",       "l" },
+            { "right",      "r" },
+            { "topleft",    "ul" },
+            { "topright",   "ur" },
+            { "bottomleft", "dl" },
+            { "bottomright", "dr" },
+        };
+        const char *location = argv[optind];
+        auto alias = aliases.find(location);
+        if (alias != aliases.end())
+            location = alias->second;
+        resizeWindow(x11, desktop, window, win, frame, location);
+    }
 }

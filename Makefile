@@ -1,4 +1,4 @@
-CXXFLAGS = -g -std=c++0x -Wall
+CXXFLAGS = -g3 -std=c++0x -Wall
 
 all:fling dlab
 
