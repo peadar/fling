@@ -5,7 +5,7 @@
 ## Move a window on the screen:
 
 - fling *\[-x\]* *\[ window selection\]* *\[ -s <screen> \]* *\[-b <border>\]*
-  *\[window-motion\]*
+  ( *\[window-motion\]* | *-i* )
    - *-b \<num\>* : specify border width (pixels)
    - *-s* : specify the xinerama monitor to move the window to.
    - *-x* : for window motion commands, start with the window's current geometry, rather than the full monitor
@@ -34,6 +34,11 @@
            existing horizontal space
          - v: retain *percent* of the existing height, and centre in the
            existing vertical space
+   - window motion: -i
+      - An X11 window is opened, and keyboard input solicited. Cursor keys
+        fling the window up, down, left right. Numeric keypad does same,
+        with home, pageup, end, and pagedn flinging to corners. Any
+        other key exits fling.
 
 ## Window manager interactions: 
   *   *-p*        : use the mouse to pick the window to fling once invoked.
