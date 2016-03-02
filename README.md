@@ -9,6 +9,7 @@
    - *-b \<num\>* : specify border width (pixels)
    - *-s* : specify the xinerama monitor to move the window to.
    - *-x* : for window motion commands, start with the window's current geometry, rather than the full monitor
+   - *-g* : "glide" window/smooth move
    - window selection:
       - *-w \<window-id\>* : specify explicit integer window id.
       - *-p* : select with mouse pointer

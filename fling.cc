@@ -2,11 +2,13 @@
 #include <X11/Xatom.h>
 #include <X11/keysymdef.h>
 #include <string>
+#include <string.h>
 #include <map>
 
 static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage()
 static bool nodo = false;
-static int border = 0;
+static unsigned int border = 0;
+static bool glide;
 
 extern char readme_txt[];
 static void
@@ -79,7 +81,12 @@ setWorkdir(const X11Env &x11, Window w, const char *value)
 }
 
 void
-resizeWindow(X11Env &x11, long desktop, Geometry &geom, Window win, const long *frame, const char *location)
+resizeWindow(X11Env &x11,
+      long desktop, Geometry &geom,
+      Window win,
+      unsigned *border,
+      const long *frame,
+      const char *location)
 {
     char curChar;
 
@@ -90,19 +97,22 @@ resizeWindow(X11Env &x11, long desktop, Geometry &geom, Window win, const long *
     geom.y -= frame[2];
 
     for (const char *path = location; (curChar = *path) != 0; ++path) {
-        int scale;
+        long scale;
         if (isdigit(curChar)) {
             char *newpath;
             scale = strtol(path, &newpath, 10);
             path = newpath;
             curChar = *path;
-            if (scale >= 100 || scale <= 0)
-                usage();
         } else {
             scale = 50;
         }
+
+        if (strchr("udlrhv", curChar) && (scale >= 100 || scale <= 0))
+                usage();
+
         switch (curChar) {
-            case '.':
+            case 'b':
+                *border = scale;
                 break;
             case 'r':
                 // move to right
@@ -141,32 +151,36 @@ resizeWindow(X11Env &x11, long desktop, Geometry &geom, Window win, const long *
     adjustForStruts(x11, &geom, desktop);
 
     // Readjust to remove the size of the frame.
-    geom.size.width -= frame[0] + frame[1] + border * 2;
-    geom.size.height -= frame[2] + frame[3] + border * 2;
-    geom.x += frame[0] + border;
-    geom.y += frame[2] + border;
+    geom.size.width -= frame[0] + frame[1] + *border * 2;
+    geom.size.height -= frame[2] + frame[3] + *border * 2;
+    geom.x += frame[0] + *border;
+    geom.y += frame[2] + *border;
 
     Geometry oldgeom = x11.getGeometry(win);
     int duration = 200000;
     int sleeptime = 1000000 / 60;
     int iters = duration / sleeptime;
+    if (glide) {
 #define update(f) next.f = (oldgeom.f * (iters - i) + geom.f * i) / iters
-    for (auto i = 1;; ++i) {
-          Geometry next;
-          update(size.width);
-          update(size.height);
-          update(x);
-          update(y);
-          x11.setGeometry(win, next);
-          if (i == iters)
-             break;
-          usleep(sleeptime);
+        for (auto i = 1;; ++i) {
+              Geometry next;
+              update(size.width);
+              update(size.height);
+              update(x);
+              update(y);
+              x11.setGeometry(win, next);
+              if (i == iters)
+                 break;
+              usleep(sleeptime);
+        }
+#undef update 
+    } else {
+        x11.setGeometry(win, geom);
     }
-#undef update
 }
 
 int
-main(int argc, char *argv[])
+catchmain(int argc, char *argv[])
 {
     int screen = -1, c;
     int verbose = 0;
@@ -187,13 +201,10 @@ main(int argc, char *argv[])
 
     if (argc == 1)
         usage();
-    while ((c = getopt(argc, argv, "b:o:s:w:W:afhimnpuvx_")) != -1) {
+    while ((c = getopt(argc, argv, "o:s:w:W:afghimnpuvx_")) != -1) {
         switch (c) {
             case 'p':
                 doPick = true;
-                break;
-            case 'b':
-                border = intarg();
                 break;
             case 's':
                 screen = intarg();
@@ -239,6 +250,9 @@ main(int argc, char *argv[])
                break;
             case 'i':
                interactive = true;
+               break;
+            case 'g':
+               glide = true;
                break;
             default:
                usage();
@@ -373,7 +387,7 @@ main(int argc, char *argv[])
                    auto todo = keyToOperation.find(keySyms[i]);
                    if (todo == keyToOperation.end())
                        exit(0);
-                   resizeWindow(x11, desktop, window, win, frame, todo->second);
+                   resizeWindow(x11, desktop, window, win, &border, frame, todo->second);
             }
         }
     } else {
@@ -391,9 +405,22 @@ main(int argc, char *argv[])
         auto alias = aliases.find(location);
         if (alias != aliases.end())
             location = alias->second;
-        resizeWindow(x11, desktop, window, win, frame, location);
+        resizeWindow(x11, desktop, window, win, &border, frame, location);
     }
     if (haveFrame)
        XFree((unsigned char *)frame);
     XCloseDisplay(display);
+    return 0;
+}
+
+int
+main(int argc, char *argv[])
+{
+   try {
+      return catchmain(argc, argv);
+   }
+   catch (const char *msg) {
+      std::clog << "internal error: " << msg << "\n";
+      return 1;
+   }
 }
