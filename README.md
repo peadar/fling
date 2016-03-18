@@ -9,7 +9,7 @@
    - *-b \<num\>* : specify border width (pixels)
    - *-s* : specify the xinerama monitor to move the window to.
    - *-x* : for window motion commands, start with the window's current geometry, rather than the full monitor
-   - *-g* : "glide" window/smooth move
+   - *-g* : disable "glide" window/smooth motion
    - window selection:
       - *-w \<window-id\>* : specify explicit integer window id.
       - *-p* : select with mouse pointer
@@ -25,9 +25,9 @@
    - window motion: control string: *\<\[\[numerator'/'\]denominator\]u|d|l|r|v|h\>+*
        - The window is initially sized to the entire monitor. numerator defaults to 1,
          and denominator to 2, and forms *fraction*
-         defaults to 50. each character reduces it in some way patterns can
-         repeat, so, for example, *fling 30dl* will place the window in the
-         left half of the lower 30% of the monitor
+         defaults to 1/2. each character reduces it in some way patterns can
+         repeat, so, for example, *fling 2/3dl* will place the window in the
+         left half of the lower two thirds of the monitor
          - l: retain only the left *fraction* of the space currently occupied
          - r: retain only the right *fraction* of the space currently occupied
          - u: retain only the top *fraction* space currently occupied
