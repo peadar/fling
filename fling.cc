@@ -8,7 +8,7 @@
 static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage()
 static bool nodo = false;
 static unsigned int border = 0;
-static bool glide;
+static bool glide = true;
 
 extern char readme_txt[];
 static void
@@ -97,47 +97,49 @@ resizeWindow(X11Env &x11,
     geom.y -= frame[2];
 
     for (const char *path = location; (curChar = *path) != 0; ++path) {
-        long scale;
+        long num = 1, denom = 2; // ~sqrt(2)
         if (isdigit(curChar)) {
             char *newpath;
-            scale = strtol(path, &newpath, 10);
+            num = 1;
+            denom = strtol(path, &newpath, 10);
             path = newpath;
             curChar = *path;
-        } else {
-            scale = 50;
+            if (curChar == '/') {
+               num = denom;
+               denom = strtol(path + 1, &newpath, 10);
+               path = newpath;
+               curChar = *path;
+            }
         }
-
-        if (strchr("udlrhv", curChar) && (scale >= 100 || scale <= 0))
-                usage();
 
         switch (curChar) {
             case 'b':
-                *border = scale;
+                *border = denom;
                 break;
             case 'r':
                 // move to right
-                geom.x += geom.size.width * (100 - scale) / 100;
+                geom.x += geom.size.width - geom.size.width * num / denom;
                 // and then...
             case 'l':
                 // cut out right hand side.
-                geom.size.width = geom.size.width * scale / 100;
+                geom.size.width = geom.size.width * num / denom;
                 break;
             case 'd':
-                geom.y += geom.size.height * (100 - scale) / 100;
+                geom.y += geom.size.height - geom.size.height * num / denom;
                 // and then...
             case 'u':
-                geom.size.height = geom.size.height * scale / 100;
+                geom.size.height = geom.size.height * num / denom;
                 break;
             case 'h': {
                 // reduce horizontal size and centre
-                int newsize = geom.size.width * scale / 100;
+                int newsize = geom.size.width * num / denom;
                 geom.x += (geom.size.width - newsize) / 2;
                 geom.size.width = newsize;
                 break;
             }
             case 'v': {
                 // reduce vertical size and centre
-                int newsize = geom.size.height * scale / 100;
+                int newsize = geom.size.height * num / denom;
                 geom.y += (geom.size.height - newsize) / 2;
                 geom.size.height = newsize;
                 break;
@@ -157,8 +159,8 @@ resizeWindow(X11Env &x11,
     geom.y += frame[2] + *border;
 
     Geometry oldgeom = x11.getGeometry(win);
-    int duration = 200000;
-    int sleeptime = 1000000 / 60;
+    int duration = 100000;
+    int sleeptime = 500000 / 60;
     int iters = duration / sleeptime;
     if (glide) {
 #define update(f) next.f = (oldgeom.f * (iters - i) + geom.f * i) / iters
@@ -252,7 +254,7 @@ catchmain(int argc, char *argv[])
                interactive = true;
                break;
             case 'g':
-               glide = true;
+               glide = !glide;
                break;
             default:
                usage();
@@ -375,7 +377,7 @@ catchmain(int argc, char *argv[])
            { XK_KP_End, "dl" },
            { XK_KP_Page_Down, "dr" }
         };
- 
+
         for (bool done = false; !done;) {
             XEvent event;
             XNextEvent(x11, &event);
