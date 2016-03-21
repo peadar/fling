@@ -1,6 +1,8 @@
 #include "wmhack.h"
+#include <poll.h>
 #include <X11/Xatom.h>
 #include <X11/keysymdef.h>
+#include <sys/time.h>
 #include <string>
 #include <string.h>
 #include <map>
@@ -180,6 +182,20 @@ resizeWindow(X11Env &x11,
         x11.setGeometry(win, geom);
     }
 }
+
+
+long
+msecDiff(const timeval &l, const timeval &r)
+{
+   suseconds_t usec = l.tv_usec - r.tv_usec;
+   time_t sec = l.tv_sec - r.tv_sec;
+   if (l.tv_usec < r.tv_usec) {
+      usec += 1000000;
+      sec -= 1;
+   }
+   return usec / 1000 + sec * 1000;
+}
+
 
 int
 catchmain(int argc, char *argv[])
@@ -378,18 +394,34 @@ catchmain(int argc, char *argv[])
            { XK_KP_Page_Down, "dr" }
         };
 
+
+        int fd = ConnectionNumber(x11.display);
+        struct pollfd pfd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        pfd.fd = fd;
+ 
+        struct timeval lastKey;
+        gettimeofday(&lastKey, 0);
         for (bool done = false; !done;) {
+           struct timeval now;
+            gettimeofday(&now, 0);
+            long wait = 5000 - msecDiff(now, lastKey);
+            poll(&pfd, 1, wait);
+            gettimeofday(&now, 0);
+            if (msecDiff(now, lastKey) > 3000)
+               exit(0);
             XEvent event;
             XNextEvent(x11, &event);
             switch (event.type) {
-               case Expose:
-                  break;
-               case KeyPress:
-                   auto i = (event.xkey.keycode - minCodes) * symsPerKey;
-                   auto todo = keyToOperation.find(keySyms[i]);
-                   if (todo == keyToOperation.end())
-                       exit(0);
-                   resizeWindow(x11, desktop, window, win, &border, frame, todo->second);
+            case KeyPress:
+                gettimeofday(&lastKey, 0);
+                auto i = (event.xkey.keycode - minCodes) * symsPerKey;
+                auto todo = keyToOperation.find(keySyms[i]);
+                if (todo == keyToOperation.end())
+                    exit(0);
+                resizeWindow(x11, desktop, window, win, &border, frame, todo->second);
+                break;
             }
         }
     } else {
