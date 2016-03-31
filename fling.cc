@@ -12,6 +12,8 @@ static bool nodo = false;
 static unsigned int border = 0;
 static bool glide = true;
 
+constexpr int MAXIDLE = 3000;
+
 extern char readme_txt[];
 static void
 usage()
@@ -406,10 +408,10 @@ catchmain(int argc, char *argv[])
         for (bool done = false; !done;) {
            struct timeval now;
             gettimeofday(&now, 0);
-            long wait = 5000 - msecDiff(now, lastKey);
+            long wait = MAXIDLE - msecDiff(now, lastKey);
             poll(&pfd, 1, wait);
             gettimeofday(&now, 0);
-            if (msecDiff(now, lastKey) > 3000)
+            if (msecDiff(now, lastKey) > MAXIDLE)
                exit(0);
             XEvent event;
             XNextEvent(x11, &event);
