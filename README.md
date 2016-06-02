@@ -1,8 +1,11 @@
 # Fling an X11 window around
 
-## Usage
+This allows you to place windows in a grid around an X display. I'm told
+its something akin to spectacle on OSX
 
-## Move a window on the screen:
+## Usage (see below for examples)
+
+### Move a window on the screen:
 
 - fling *\[-x\]* *\[ window selection\]* *\[ -s <screen> \]* *\[-b <border>\]*
   ( *\[window-motion\]* | *-i* )
@@ -37,12 +40,12 @@
          - v: retain *fraction* of the existing height, and centre in the
            existing vertical space
    - window motion: -i
-      - An X11 window is opened, and keyboard input solicited. Cursor keys
-        fling the window up, down, left right. Numeric keypad does same,
-        with home, pageup, end, and pagedn flinging to corners. Any
-        other key exits fling.
+      - Interactive mode: An X11 window is opened, and keyboard input
+        solicited. Cursor keys fling the window up, down, left
+        right. Numeric keypad does same, with home, pageup, end, and
+        pagedn flinging to corners. Any other key exits fling.
 
-## Window manager interactions: 
+### Window manager interactions:
   *   *-p*        : use the mouse to pick the window to fling once invoked.
   *   *-f*        : toggle "fullscreen"
   *   *-m*        : toggle "maximised"
@@ -52,3 +55,11 @@
   *   *-x*        : use the window's existing dimensions as the starting
       geometry
   *   *-o \<num\>*: set window opacity
+
+## command-line examples:
+
+ - fling u (or fling up): current window occupies the top half of the screen
+ - fling l (or fling left): current window occupies left half of screen
+ - fling ul : current window occupies the top left of quarter of the screen
+ - fling 1/3dr : current window occupies right-hand-side of bottom third of screen
+ - fling uldr: window occupies bottom right quarter of top left quarter of screen

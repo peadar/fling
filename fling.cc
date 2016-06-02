@@ -6,6 +6,7 @@
 #include <string>
 #include <string.h>
 #include <map>
+#include <set>
 
 static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage()
 static bool nodo = false;
@@ -210,7 +211,7 @@ catchmain(int argc, char *argv[])
     bool windowRelative = false;
     Window win = 0;
     const char *workdir = 0;
-    std::list<Atom> toggles;
+    std::set<Atom> toggles;
 
     Display *display = XOpenDisplay(0);
     if (display == 0) {
@@ -233,22 +234,22 @@ catchmain(int argc, char *argv[])
                 nodo = true;
                 break;
             case 'f':
-                toggles.push_back(x11.NetWmStateFullscreen);
+                toggles.insert(x11.NetWmStateFullscreen);
                 break;
             case 'm':
-                toggles.push_back(x11.NetWmStateMaximizedHoriz);
+                toggles.insert(x11.NetWmStateMaximizedHoriz);
                 break;
             case 'h':
                 usage();
                 break;
             case '_':
-                toggles.push_back(x11.NetWmStateShaded);
+                toggles.insert(x11.NetWmStateShaded);
                 break;
             case 'a':
-                toggles.push_back(x11.NetWmStateAbove);
+                toggles.insert(x11.NetWmStateAbove);
                 break;
             case 'u':
-                toggles.push_back(x11.NetWmStateBelow);
+                toggles.insert(x11.NetWmStateBelow);
                 break;
             case 'o':
                opacity = strtod(optarg, 0);
