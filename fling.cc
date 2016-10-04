@@ -10,7 +10,7 @@
 
 static int intarg() { return atoi(optarg); } // XXX: use strtol and invoke usage()
 static bool nodo = false;
-static unsigned int border = 0;
+static unsigned int border = 2;
 static bool glide = true;
 
 constexpr int MAXIDLE = 3000;
@@ -102,16 +102,16 @@ resizeWindow(X11Env &x11,
     geom.y -= frame[2];
 
     for (const char *path = location; (curChar = *path) != 0; ++path) {
-        long num = 1, denom = 2; // ~sqrt(2)
-        if (isdigit(curChar)) {
+        double num = 1, denom = 2;
+        if (isdigit(curChar) || curChar == '.') {
             char *newpath;
             num = 1;
-            denom = strtol(path, &newpath, 10);
+            denom = strtod(path, &newpath);
             path = newpath;
             curChar = *path;
             if (curChar == '/') {
                num = denom;
-               denom = strtol(path + 1, &newpath, 10);
+               denom = strtod(path + 1, &newpath);
                path = newpath;
                curChar = *path;
             }
