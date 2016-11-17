@@ -58,7 +58,7 @@ its something akin to spectacle on OSX
 
 ## command-line examples:
 
- - fling u (or fling up): current window occupies the top half of the screen
+ - fling u (or fling top): current window occupies the top half of the screen
  - fling l (or fling left): current window occupies left half of screen
  - fling ul : current window occupies the top left of quarter of the screen
  - fling 1/3dr : current window occupies right-hand-side of bottom third of screen

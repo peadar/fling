@@ -123,28 +123,28 @@ resizeWindow(X11Env &x11,
                 break;
             case 'r':
                 // move to right
-                geom.x += geom.size.width - geom.size.width * num / denom;
+                geom.x += geom.size.width - geom.size.width * (num / denom);
                 // and then...
             case 'l':
                 // cut out right hand side.
                 geom.size.width = geom.size.width * num / denom;
                 break;
             case 'd':
-                geom.y += geom.size.height - geom.size.height * num / denom;
+                geom.y += geom.size.height - geom.size.height * (num / denom);
                 // and then...
             case 'u':
-                geom.size.height = geom.size.height * num / denom;
+                geom.size.height = geom.size.height * (num / denom);
                 break;
             case 'h': {
                 // reduce horizontal size and centre
-                int newsize = geom.size.width * num / denom;
+                int newsize = geom.size.width * (num / denom);
                 geom.x += (geom.size.width - newsize) / 2;
                 geom.size.width = newsize;
                 break;
             }
             case 'v': {
                 // reduce vertical size and centre
-                int newsize = geom.size.height * num / denom;
+                int newsize = geom.size.height * (num / denom);
                 geom.y += (geom.size.height - newsize) / 2;
                 geom.size.height = newsize;
                 break;
