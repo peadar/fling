@@ -1,4 +1,6 @@
 tags
+dlab
+fling
 *.o
 readme.c
 readme.filtered

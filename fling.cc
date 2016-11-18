@@ -17,9 +17,9 @@ constexpr int MAXIDLE = 3000;
 
 extern char readme_txt[];
 static void
-usage()
+usage(std::ostream &stream)
 {
-    std::clog << readme_txt;
+    stream << readme_txt;
     exit(1);
 }
 
@@ -150,7 +150,7 @@ resizeWindow(X11Env &x11,
                 break;
             }
             default:
-                usage();
+                usage(std::cerr);
         }
     }
 
@@ -221,7 +221,7 @@ catchmain(int argc, char *argv[])
     X11Env x11(display);
 
     if (argc == 1)
-        usage();
+        usage(std::cerr);
     while ((c = getopt(argc, argv, "o:s:w:W:afghimnpuvx_")) != -1) {
         switch (c) {
             case 'p':
@@ -240,7 +240,7 @@ catchmain(int argc, char *argv[])
                 toggles.insert(x11.NetWmStateMaximizedHoriz);
                 break;
             case 'h':
-                usage();
+                usage(std::cout);
                 break;
             case '_':
                 toggles.insert(x11.NetWmStateShaded);
@@ -254,7 +254,7 @@ catchmain(int argc, char *argv[])
             case 'o':
                opacity = strtod(optarg, 0);
                if (opacity < 0.0 || opacity > 1.0)
-                  usage();
+                  usage(std::cerr);
                break;
             case 'w':
                win = intarg();
@@ -276,7 +276,7 @@ catchmain(int argc, char *argv[])
                glide = !glide;
                break;
             default:
-               usage();
+               usage(std::cerr);
                break;
         }
     }
