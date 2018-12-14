@@ -256,6 +256,9 @@ catchmain(int argc, char *argv[])
             case 'n':
                 nodo = true;
                 break;
+            case 'b':
+                toggles.insert(x11.NetWmStateBelow);
+                break;
             case 'f':
                 toggles.insert(x11.NetWmStateFullscreen);
                 break;
