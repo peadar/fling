@@ -15,10 +15,10 @@ readme.c: readme.txt
 	xxd -i $^ $@
 
 fling: $(FLING_OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $^ -lX11 -lXinerama -lXmu
+	$(CXX) $(LDFLAGS) -o $@ $^ -lX11 -lXinerama -lXmu -lXrandr
 
 dlab: $(DLAB_OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $^ -lX11 -lXinerama -lXmu
+	$(CXX) $(LDFLAGS) -o $@ $^ -lX11 -lXinerama -lXmu -lXrandr
 
 clean:
 	rm -f dlab fling $(FLING_OBJS) $(DLAB_OBJS) $(EXTRA_CLEAN)

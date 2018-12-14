@@ -1,4 +1,5 @@
 #include "wmhack.h"
+#include <X11/extensions/Xrandr.h>
 
 std::ostream &
 operator<<(std::ostream &os, const Geometry &m)
@@ -93,15 +94,27 @@ X11Env::setGeometry(Window win, const Geometry &geom) const
     XSync(display, False);
 }
 
-
 void
 X11Env::detectMonitors()
 {
-    /* Fallback case is a single monitor occupying the entire root window */
-    monitors.resize(1);
-    monitors[0] = rootGeom;
-    // If xinerama is present, use it.
+    // Try XRandR
     int eventBase, eventError;
+    if (XRRQueryExtension(display, &eventBase, &eventError) != 0) {
+       int count = 0;
+       auto xrandrMonitors = XRRGetMonitors(display, root, True, &count);
+       if (count) {
+           monitors.resize(count);
+           for (int i = 0; i < count; ++i) {
+              monitors[i].size.width = xrandrMonitors[i].width;
+              monitors[i].size.height = xrandrMonitors[i].height;
+              monitors[i].x = xrandrMonitors[i].x;
+              monitors[i].y = xrandrMonitors[i].y;
+           }
+           XFree(xrandrMonitors);
+           return;
+       }
+    }
+    // try Xinerama.
     if (XineramaQueryExtension(display, &eventBase, &eventError) != 0) {
         int monitorCount;
         XineramaScreenInfo *xineramaMonitors = XineramaQueryScreens(display, &monitorCount);
@@ -114,9 +127,14 @@ X11Env::detectMonitors()
                 monitors[i].y = xineramaMonitors[i].y_org;
             }
             XFree(xineramaMonitors);
+            return;
         }
     }
+    /* Fallback case is a single monitor occupying the entire root window */
+    monitors.resize(1);
+    monitors[0] = rootGeom;
 }
+
 std::ostream &operator <<(std::ostream &os, const Range &r)
 {
    os
