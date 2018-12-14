@@ -70,12 +70,42 @@ adjustForStruts(const X11Env &x11, Geometry *g, long targetDesktop)
 }
 
 static void
-setOpacity(const X11Env &x11, Window w, double opacity)
+setOpacityRaw(const X11Env &x11, Window w, unsigned long opacity)
 {
-    unsigned long opacityLong = opacity * std::numeric_limits<uint32_t>::max();
-    XChangeProperty(x11, w, x11.NetWmOpacity, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&opacityLong, 1);
+    XChangeProperty(x11, w, x11.NetWmOpacity, XA_CARDINAL, 32, PropModeReplace,
+          (unsigned char *)&opacity, 1);
     XFlush(x11);
 }
+
+static void
+setOpacity(const X11Env &x11, Window w, double opacity)
+{
+    setOpacityRaw(x11, w, opacity * std::numeric_limits<uint32_t>::max());
+}
+
+static double
+getOpacity(const X11Env &x11, Window w)
+{
+
+    Atom actualType;
+    int actualFormat;
+    unsigned char *property;
+    unsigned long items, size;
+
+    int rc = XGetWindowProperty(x11, w, x11.NetWmOpacity, 0, 1, False, XA_CARDINAL,
+            &actualType, &actualFormat, &items, &size, &property);
+    unsigned long propertyValue = rc == 0 && items == 1 ? *(unsigned long *)property : std::numeric_limits<uint32_t>::max();
+    propertyValue &= 0xffffffff; // XXX: Seems to get sign extended.
+    return double(propertyValue) / std::numeric_limits<uint32_t>::max();
+}
+
+
+static void
+setOpacityDelta(const X11Env &x11, Window w, double opacity)
+{
+    setOpacity(x11, w, std::max(0.0, std::min(1.0, getOpacity(x11, w) + opacity)));
+}
+
 
 static void
 setWorkdir(const X11Env &x11, Window w, const char *value)
@@ -200,6 +230,7 @@ catchmain(int argc, char *argv[])
     bool doPick = false;
     bool interactive = false;
     double opacity = -1;
+    double opacityDelta = 0;
     bool windowRelative = false;
     Window win = 0;
     const char *workdir = 0;
@@ -214,7 +245,7 @@ catchmain(int argc, char *argv[])
 
     if (argc == 1)
         usage(std::cerr);
-    while ((c = getopt(argc, argv, "o:s:w:W:afghimnpuvx_")) != -1) {
+    while ((c = getopt(argc, argv, "o:s:w:W:abfghimnpuvx_O:")) != -1) {
         switch (c) {
             case 'p':
                 doPick = true;
@@ -243,11 +274,17 @@ catchmain(int argc, char *argv[])
             case 'u':
                 toggles.insert(x11.NetWmStateBelow);
                 break;
+
             case 'o':
                opacity = strtod(optarg, 0);
-               if (opacity < 0.0 || opacity > 1.0)
+               if (opacity < 0.0 || opacity > 1)
                   usage(std::cerr);
                break;
+
+            case 'O':
+               opacityDelta = strtod(optarg, 0);
+               break;
+
             case 'w':
                win = intarg();
                break;
@@ -284,6 +321,8 @@ catchmain(int argc, char *argv[])
     // If we're doing state toggles/misc changes to window, do it now.
     if (opacity >= 0.0)
         setOpacity(x11, win, opacity);
+    if (opacityDelta != 0.0)
+        setOpacityDelta(x11, win, opacityDelta);
     if (workdir != 0)
         setWorkdir(x11, win, workdir);
     for (auto atom : toggles)
