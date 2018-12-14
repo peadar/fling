@@ -126,7 +126,6 @@ std::ostream &operator <<(std::ostream &os, const Range &r)
    return os;
 }
 
-
 std::ostream &operator <<(std::ostream &os, const PartialStrut &ps)
 {
    os

@@ -95,12 +95,6 @@ resizeWindow(X11Env &x11,
 {
     char curChar;
 
-    // Increase geometry by the size of the frame to include it in ratios
-    geom.size.width += frame[0] + frame[1];
-    geom.size.height += frame[2] + frame[3];
-    geom.x -= frame[0];
-    geom.y -= frame[2];
-
     for (const char *path = location; (curChar = *path) != 0; ++path) {
         double num = 1, denom = 2;
         if (isdigit(curChar) || curChar == '.') {
@@ -153,18 +147,16 @@ resizeWindow(X11Env &x11,
                 usage(std::cerr);
         }
     }
-
-    // make sure the window doesn't cover any struts.
     adjustForStruts(x11, &geom, desktop);
 
-    // Readjust to remove the size of the frame.
+    // Adjust the geometry downwards to account for the frame around the window, and our border.
     geom.size.width -= frame[0] + frame[1] + *border * 2;
     geom.size.height -= frame[2] + frame[3] + *border * 2;
     geom.x += frame[0] + *border;
     geom.y += frame[2] + *border;
 
     Geometry oldgeom = x11.getGeometry(win);
-    int duration = 100000;
+    int duration = 150000;
     int sleeptime = 500000 / 60;
     int iters = duration / sleeptime;
     if (glide) {
@@ -336,12 +328,7 @@ catchmain(int argc, char *argv[])
        if (rc == 0)
            XFree(prop);
     } else {
-       // Reduce the size of the monitor by the size of a window frame.
        window = x11.monitors[screen];
-       window.size.width -= frame[0] + frame[1];
-       window.size.height -= frame[2] + frame[3];
-       window.x += frame[0];
-       window.y += frame[2];
     }
 
     /*

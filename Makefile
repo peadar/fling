@@ -1,5 +1,7 @@
 CXXFLAGS = -g -std=c++0x -Wall
 
+.PHONY: all clean install
+
 all:fling dlab
 
 FLING_OBJS += fling.o common.o readme.o
