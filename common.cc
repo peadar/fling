@@ -241,6 +241,10 @@ X11Env::active()
     unsigned long itemCount;
     unsigned long afterBytes;
     unsigned char *prop;
+    // Things like gmrun will exit just after they execute the command they are
+    // asked to run. Give them time to go away before finding the active
+    // window, or else we just end up flinging the dialog box they present
+    usleep(500000);
     int rc = XGetWindowProperty(display, root, NetActiveWindow,
             0, std::numeric_limits<long>::max(), False, AWindow,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
