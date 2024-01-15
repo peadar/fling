@@ -245,8 +245,17 @@ catchmain(int argc, char *argv[])
 
     if (argc == 1)
         usage(std::cerr);
-    while ((c = getopt(argc, argv, "o:s:w:W:abfghimnpuvx_O:")) != -1) {
+
+
+    X11Env::StateUpdateAction action = X11Env::TOGGLE;
+    while ((c = getopt(argc, argv, "o:s:w:W:abfghimnpuvx_O:YNA")) != -1) {
         switch (c) {
+            case 'N':
+                action = X11Env::REMOVE;
+                break;
+            case 'Y':
+                action = X11Env::ADD;
+                break;
             case 'p':
                 doPick = true;
                 break;
@@ -321,6 +330,8 @@ catchmain(int argc, char *argv[])
         return 0;
     }
 
+    std::clog << "updating " << win << "\n";
+
     // If we're doing state toggles/misc changes to window, do it now.
     if (opacity >= 0.0)
         setOpacity(x11, win, opacity);
@@ -329,7 +340,7 @@ catchmain(int argc, char *argv[])
     if (workdir != 0)
         setWorkdir(x11, win, workdir);
     for (auto atom : toggles)
-        x11.updateState(win, atom, X11Env::TOGGLE);
+        x11.updateState(win, atom, action);
 
     // If nothing else to do, just exit.
     if (argc == optind && !interactive)
@@ -351,13 +362,17 @@ catchmain(int argc, char *argv[])
     long desktop;
     int rc;
     const long *frame;
+    frame = 0;
     rc = XGetWindowProperty(x11, win, x11.NetFrameExtents,
             0, std::numeric_limits<long>::max(), False, x11.Cardinal,
             &actualType, &actualFormat, &itemCount, &afterBytes, &prop);
-    bool haveFrame = rc == 0;
-    if (rc != 0 || actualFormat != 32 || itemCount != 4) {
-        std::cerr << "can't find frame sizes" << std::endl;
+    bool haveFrame = rc == 0 && actualFormat == 32 && itemCount == 4;
+    if (!haveFrame) {
+        std::cerr << "can't find frame sizes: rc = " << rc << ", actualFormat="
+            << actualFormat << ", itemCount=" << itemCount << std::endl;
         static long defaultFrame[] = { 0, 0, 0, 0 };
+        if (frame)
+            XFree((void *)frame);
         frame = defaultFrame;
     } else {
         frame = (long *)prop;
